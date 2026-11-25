@@ -4,14 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --config wrangler.dev.toml --test-scheduled",
     "build": "wrangler deploy --dry-run --outdir dist",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "db:migrate:local": "wrangler d1 migrations apply rayan-db --local",
+    "db:migrate:local": "wrangler d1 migrations apply rayan-db --local --config wrangler.dev.toml",
     "db:migrate:remote": "wrangler d1 migrations apply rayan-db --remote",
     "gen:agents-sql": "node scripts/gen-agents-sql.mjs",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "dev:remote-ai": "wrangler dev --test-scheduled"
   },
   "dependencies": {
     "@rayan/shared": "*",
