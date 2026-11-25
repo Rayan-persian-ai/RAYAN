@@ -2,11 +2,13 @@
   "name": "rayan",
   "private": true,
   "version": "0.1.0",
-  "description": "RAYAN \u2014 Persian-first AI platform (Phase 1: Foundation)",
+  "description": "RAYAN — Persian-first AI platform (Phase 1: Foundation)",
   "workspaces": [
     "packages/shared",
     "apps/api",
-    "apps/web"
+    "apps/web",
+    "packages/cortex",
+    "packages/autopilot"
   ],
   "engines": {
     "node": ">=20"

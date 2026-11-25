@@ -1,0 +1,123 @@
+{
+  "id": "cmp_1atcf2d_20270214",
+  "version": 1,
+  "status": "pending_approval",
+  "businessId": "biz_gol",
+  "event": {
+    "id": "valentines_day",
+    "instanceId": "valentines_day@2027-02-14",
+    "titleFa": "روز ولنتاین",
+    "date": "2027-02-14",
+    "jalaliDate": "1405/11/25",
+    "approximate": false
+  },
+  "createdAt": "2026-11-25T08:00:00.000Z",
+  "relevance": {
+    "score": 38,
+    "recommendation": "optional",
+    "reasons": [
+      "تناسب حوزهٔ کسب‌وکار با موضوعات: gifting",
+      "هنوز زود است (۸۱ روز مانده)؛ برنامه‌ریزی کنید و نزدیک‌تر اجرا کنید."
+    ],
+    "daysUntil": 81
+  },
+  "idea": {
+    "title": "روز ولنتاین به سبک گل‌فروشی رز",
+    "summary": "مجموعهٔ محدود محصولات دونفره با پیام شخصی روی بسته.",
+    "angle": "شخصی‌سازی"
+  },
+  "copy": {
+    "headline": "روز ولنتاین را خاص‌تر کنید",
+    "body": "مجموعهٔ ویژهٔ روز ولنتاین در گل‌فروشی رز آماده است؛ ۱۵٪ تخفیف برای هدیه‌ای که فراموش نمی‌شود. کد تخفیف: VALENT052D.",
+    "cta": "مشاهده و خرید",
+    "sms": "گل‌فروشی رز: روز ولنتاین با ۱۵٪ تخفیف با کد VALENT052D",
+    "hashtags": [
+      "#روز_ولنتاین",
+      "#گل_فروشی_رز",
+      "#تخفیف"
+    ]
+  },
+  "discount": {
+    "type": "percent",
+    "value": 15,
+    "code": "VALENT052D",
+    "validFrom": "2027-02-07",
+    "validTo": "2027-02-14",
+    "rationale": "پایهٔ ۱۵٪ برای این نوع مناسبت، تعدیل‌شده با سطح قیمت و سقف ۳۰٪."
+  },
+  "audience": {
+    "definition": {
+      "channel": "sms",
+      "consentRequired": true
+    },
+    "contactIds": [],
+    "size": 0,
+    "excluded": {
+      "noConsent": 0,
+      "noAddress": 0,
+      "filteredOut": 0
+    }
+  },
+  "banner": {
+    "format": "social_banner",
+    "width": 1200,
+    "height": 628,
+    "lang": "fa",
+    "direction": "rtl",
+    "fontFamily": "Vazirmatn, Vazir, Tahoma, 'DejaVu Sans', sans-serif",
+    "background": {
+      "from": "#7d1840",
+      "to": "#d63a72"
+    },
+    "textColor": "#ffffff",
+    "accentColor": "#ffe3ee",
+    "ctaTextColor": "#111111",
+    "brand": "گل‌فروشی رز",
+    "headline": "روز ولنتاین را خاص‌تر کنید",
+    "subline": "روز ولنتاین به سبک گل‌فروشی رز",
+    "cta": "مشاهده و خرید",
+    "badge": "۱۵٪ تخفیف",
+    "code": "VALENT052D",
+    "motif": "heart",
+    "dateLabel": "۲۵ بهمن ۱۴۰۵"
+  },
+  "poster": {
+    "format": "story_poster",
+    "width": 1080,
+    "height": 1920,
+    "lang": "fa",
+    "direction": "rtl",
+    "fontFamily": "Vazirmatn, Vazir, Tahoma, 'DejaVu Sans', sans-serif",
+    "background": {
+      "from": "#7d1840",
+      "to": "#d63a72"
+    },
+    "textColor": "#ffffff",
+    "accentColor": "#ffe3ee",
+    "ctaTextColor": "#111111",
+    "brand": "گل‌فروشی رز",
+    "headline": "روز ولنتاین را خاص‌تر کنید",
+    "subline": "روز ولنتاین به سبک گل‌فروشی رز",
+    "cta": "مشاهده و خرید",
+    "badge": "۱۵٪ تخفیف",
+    "code": "VALENT052D",
+    "motif": "heart",
+    "dateLabel": "۲۵ بهمن ۱۴۰۵"
+  },
+  "assets": "(see files)",
+  "schedule": {
+    "startDate": "2027-02-04",
+    "suggestedSendDate": "2027-02-11",
+    "suggestedSendLocalTime": "10:00 Asia/Tehran"
+  },
+  "generator": "template",
+  "warnings": [
+    "هیچ مخاطبِ دارای رضایت دریافت پیام تبلیغاتی در این مخاطبان نیست."
+  ],
+  "tags": [
+    "romance",
+    "gifting",
+    "beauty",
+    "fashion"
+  ]
+}

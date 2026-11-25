@@ -1,0 +1,123 @@
+{
+  "id": "cmp_1rk0p20_20261221",
+  "version": 1,
+  "status": "pending_approval",
+  "businessId": "biz_anar",
+  "event": {
+    "id": "yalda",
+    "instanceId": "yalda@2026-12-21",
+    "titleFa": "شب یلدا",
+    "date": "2026-12-21",
+    "jalaliDate": "1405/09/30",
+    "approximate": false
+  },
+  "createdAt": "2026-11-25T08:00:00.000Z",
+  "relevance": {
+    "score": 98,
+    "recommendation": "recommended",
+    "reasons": [
+      "تناسب حوزهٔ کسب‌وکار با موضوعات: food، family",
+      "زمان‌بندی مناسب برای شروع کمپین"
+    ],
+    "daysUntil": 26
+  },
+  "idea": {
+    "title": "بستهٔ ویژهٔ شب یلدا",
+    "summary": "بستهٔ خانوادگی آماده برای دورهمی شب یلدا.",
+    "angle": "دورهمی خانوادگی"
+  },
+  "copy": {
+    "headline": "شب یلدا را کنار هم جشن بگیریم",
+    "body": "قنادی انار برای دورهمی شب یلدا شما ۱۵٪ تخفیف آماده کرده است. کد تخفیف: YALDA0520. شبی گرم و خاطره‌انگیز برایتان آرزو می‌کنیم.",
+    "cta": "مشاهده و خرید",
+    "sms": "قنادی انار: شب یلدا با ۱۵٪ تخفیف با کد YALDA0520",
+    "hashtags": [
+      "#شب_یلدا",
+      "#قنادی_انار",
+      "#تخفیف"
+    ]
+  },
+  "discount": {
+    "type": "percent",
+    "value": 15,
+    "code": "YALDA0520",
+    "validFrom": "2026-12-14",
+    "validTo": "2026-12-21",
+    "rationale": "پایهٔ ۱۵٪ برای این نوع مناسبت، تعدیل‌شده با سطح قیمت و سقف ۳۰٪."
+  },
+  "audience": {
+    "definition": {
+      "channel": "sms",
+      "consentRequired": true
+    },
+    "contactIds": [],
+    "size": 0,
+    "excluded": {
+      "noConsent": 0,
+      "noAddress": 0,
+      "filteredOut": 0
+    }
+  },
+  "banner": {
+    "format": "social_banner",
+    "width": 1200,
+    "height": 628,
+    "lang": "fa",
+    "direction": "rtl",
+    "fontFamily": "Vazirmatn, Vazir, Tahoma, 'DejaVu Sans', sans-serif",
+    "background": {
+      "from": "#5c0b16",
+      "to": "#b3122e"
+    },
+    "textColor": "#ffffff",
+    "accentColor": "#f4c542",
+    "ctaTextColor": "#111111",
+    "brand": "قنادی انار",
+    "headline": "شب یلدا را کنار هم جشن بگیریم",
+    "subline": "بستهٔ ویژهٔ شب یلدا",
+    "cta": "مشاهده و خرید",
+    "badge": "۱۵٪ تخفیف",
+    "code": "YALDA0520",
+    "motif": "pomegranate",
+    "dateLabel": "۳۰ آذر ۱۴۰۵"
+  },
+  "poster": {
+    "format": "story_poster",
+    "width": 1080,
+    "height": 1920,
+    "lang": "fa",
+    "direction": "rtl",
+    "fontFamily": "Vazirmatn, Vazir, Tahoma, 'DejaVu Sans', sans-serif",
+    "background": {
+      "from": "#5c0b16",
+      "to": "#b3122e"
+    },
+    "textColor": "#ffffff",
+    "accentColor": "#f4c542",
+    "ctaTextColor": "#111111",
+    "brand": "قنادی انار",
+    "headline": "شب یلدا را کنار هم جشن بگیریم",
+    "subline": "بستهٔ ویژهٔ شب یلدا",
+    "cta": "مشاهده و خرید",
+    "badge": "۱۵٪ تخفیف",
+    "code": "YALDA0520",
+    "motif": "pomegranate",
+    "dateLabel": "۳۰ آذر ۱۴۰۵"
+  },
+  "assets": "(see files)",
+  "schedule": {
+    "startDate": "2026-12-07",
+    "suggestedSendDate": "2026-12-18",
+    "suggestedSendLocalTime": "10:00 Asia/Tehran"
+  },
+  "generator": "template",
+  "warnings": [
+    "هیچ مخاطبِ دارای رضایت دریافت پیام تبلیغاتی در این مخاطبان نیست."
+  ],
+  "tags": [
+    "family",
+    "food",
+    "gifting",
+    "home"
+  ]
+}

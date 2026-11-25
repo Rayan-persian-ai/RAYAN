@@ -1,0 +1,102 @@
+apply plugin: 'com.android.application'
+
+// ---------------------------------------------------------------------------
+// RAYAN release signing — NEVER commit a keystore or passwords.
+// Values come from environment variables (CI) or an untracked
+// android/keystore.properties file (local). If none are present, release
+// builds are produced UNSIGNED and debug builds use the default debug key.
+//   RAYAN_KEYSTORE_FILE        absolute path to the .jks/.keystore file
+//   ANDROID_KEYSTORE_PASSWORD  store password
+//   ANDROID_KEY_ALIAS          key alias
+//   ANDROID_KEY_PASSWORD       key password
+// Versioning (optional): RAYAN_VERSION_CODE (int), RAYAN_VERSION_NAME.
+// ---------------------------------------------------------------------------
+def keystoreProps = new Properties()
+def keystorePropsFile = rootProject.file('keystore.properties')
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+def signingValue = { String envName, String propName ->
+    def v = System.getenv(envName)
+    return (v != null && !v.trim().isEmpty()) ? v : keystoreProps.getProperty(propName)
+}
+def releaseStoreFile = signingValue('RAYAN_KEYSTORE_FILE', 'storeFile')
+def releaseStorePassword = signingValue('ANDROID_KEYSTORE_PASSWORD', 'storePassword')
+def releaseKeyAlias = signingValue('ANDROID_KEY_ALIAS', 'keyAlias')
+def releaseKeyPassword = signingValue('ANDROID_KEY_PASSWORD', 'keyPassword')
+def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword &&
+        file(releaseStoreFile).exists()
+def envVersionCode = System.getenv('RAYAN_VERSION_CODE')
+def envVersionName = System.getenv('RAYAN_VERSION_NAME')
+
+android {
+    namespace "com.rayan.ai"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.rayan.ai"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode((envVersionCode ?: '1') as Integer)
+        versionName(envVersionName ?: '0.1.0')
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            // Same applicationId (com.rayan.ai) as release; only the label differs.
+            versionNameSuffix '-debug'
+        }
+        release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            } else {
+                logger.warn('RAYAN: release signing not configured -> app-release-unsigned.apk')
+            }
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

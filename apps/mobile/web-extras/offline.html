@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark light" />
+  <title>رایان — اتصال برقرار نیست</title>
+  <style>
+    :root { --bg:#0f172a; --card:#111c36; --fg:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: radial-gradient(circle at 50% 35%, #1e3a8a 0%, var(--bg) 70%);
+      color: var(--fg);
+      font-family: Vazirmatn, "Vazir", Tahoma, "Segoe UI", system-ui, sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
+      text-align: center; line-height: 1.9;
+    }
+    main { max-width: 420px; width: 100%; }
+    .mark { font-size: 72px; font-weight: 800; line-height: 1; position: relative; display: inline-block; }
+    .mark::after { content:""; position:absolute; top:4px; inset-inline-end:-14px; width:14px; height:14px; border-radius:50%; background:var(--accent); }
+    h1 { font-size: 1.35rem; margin: 20px 0 8px; }
+    p { color: var(--muted); margin: 0 0 24px; }
+    button {
+      font: inherit; font-weight: 700; color: var(--bg); background: var(--accent);
+      border: 0; border-radius: 12px; padding: 12px 28px; cursor: pointer; min-width: 180px;
+    }
+    button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+    small { display:block; margin-top: 18px; color: var(--muted); font-size: .8rem; }
+    #status[data-online="true"] { color: #4ade80; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark" aria-hidden="true">ر</div>
+    <h1>اتصال به اینترنت برقرار نیست</h1>
+    <p>رایان برای پاسخ‌گویی به اینترنت نیاز دارد. لطفاً اتصال خود را بررسی کنید و دوباره تلاش کنید.</p>
+    <button id="retry" type="button">تلاش دوباره</button>
+    <small id="status" role="status" aria-live="polite">وضعیت: آفلاین</small>
+  </main>
+  <script>
+    // Offline fallback for the RAYAN Android/desktop shells.
+    // Capacitor shows this page (server.errorPath) when the WebView fails to load;
+    // the web app may also navigate here when navigator.onLine is false.
+    (function () {
+      var status = document.getElementById('status');
+      function home() {
+        var params = new URLSearchParams(location.search);
+        var back = params.get('return');
+        // Only allow same-origin relative returns.
+        if (back && back.charAt(0) === '/' && back.charAt(1) !== '/') return back;
+        return '/';
+      }
+      function retry() { location.replace(home()); }
+      function update(auto) {
+        var on = navigator.onLine;
+        status.dataset.online = String(on);
+        status.textContent = on ? (auto ? 'وضعیت: آنلاین — در حال بازگشت…' : 'وضعیت: آنلاین، اما سرور در دسترس نیست')
+                                : 'وضعیت: آفلاین';
+        // Auto-return only when connectivity comes back (avoids reload loops
+        // when the device is online but the server is unreachable).
+        if (on && auto) setTimeout(retry, 800);
+      }
+      document.getElementById('retry').addEventListener('click', retry);
+      window.addEventListener('online', function () { update(true); });
+      window.addEventListener('offline', function () { update(false); });
+      update(false);
+    })();
+  </script>
+</body>
+</html>
