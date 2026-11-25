@@ -21,7 +21,7 @@ export async function getDailyLimit(db: D1Database, service: string, envDefault:
 }
 
 export function envAiLimit(env: Env): number {
-  return intVar(env.AI_DAILY_LIMIT, 100);
+  return intVar(env.AI_DAILY_LIMIT, 60);
 }
 
 export interface Reservation {

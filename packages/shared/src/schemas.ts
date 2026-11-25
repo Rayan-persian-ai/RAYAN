@@ -29,8 +29,17 @@ export const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.string().trim().min(1).max(4000),
 });
+/** Upper bound on total characters per chat request — keeps each Workers AI call's neuron cost bounded (see README). */
+export const CHAT_MAX_TOTAL_CHARS = 6000;
 export const chatRequestSchema = z.object({
-  messages: z.array(chatMessageSchema).min(1).max(20),
+  messages: z
+    .array(chatMessageSchema)
+    .min(1)
+    .max(20)
+    .refine((m) => m.reduce((n, x) => n + x.content.length, 0) <= CHAT_MAX_TOTAL_CHARS, {
+      message: "طول کل گفت‌وگو بیش از حد مجاز است؛ یک گفت‌وگوی تازه شروع کنید.",
+    })
+    .refine((m) => m.at(-1)?.role === "user", { message: "آخرین پیام باید از طرف کاربر باشد." }),
 });
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 

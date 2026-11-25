@@ -1,5 +1,22 @@
-import { api, type Me } from "../api";
+import type { Me } from "../api";
+import { api } from "../api";
 import { alertBox, errorMessage, h, num } from "../ui";
+
+const MAX_TOTAL_CHARS = 6000; // mirrors CHAT_MAX_TOTAL_CHARS in @rayan/shared
+
+/** Most recent turns that fit the server-side budget, always starting with a user turn. */
+function contextWindow(turns: Turn[]): Turn[] {
+  const out: Turn[] = [];
+  let total = 0;
+  for (let i = turns.length - 1; i >= 0 && out.length < 20; i--) {
+    const t = turns[i]!;
+    if (total + t.content.length > MAX_TOTAL_CHARS) break;
+    total += t.content.length;
+    out.unshift(t);
+  }
+  while (out.length && out[0]!.role !== "user") out.shift();
+  return out;
+}
 
 interface Turn {
   role: "user" | "assistant";
@@ -39,7 +56,7 @@ export function renderChat(main: HTMLElement, me: Me) {
     log.append(pending);
     send.disabled = true;
     try {
-      const res = await api<ChatResponse>("POST", "/chat", { messages: history.slice(-20) });
+      const res = await api<ChatResponse>("POST", "/chat", { messages: contextWindow(history) });
       history.push({ role: "assistant", content: res.reply });
       usage.textContent = `مصرف امروز سامانه: ${num(res.usage.used)} از ${num(res.usage.limit)}`;
     } catch (e) {
