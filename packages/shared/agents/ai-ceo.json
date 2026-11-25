@@ -1,0 +1,15 @@
+{
+  "slug": "ai-ceo",
+  "name_fa": "مدیرعامل هوش مصنوعی",
+  "name_en": "AI CEO",
+  "description": "هماهنگی راهبردی، اولویت‌بندی اهداف و واگذاری کارها به سایر عامل‌ها.",
+  "permissions": [
+    "ai:chat",
+    "tasks:create",
+    "tasks:read",
+    "agents:delegate",
+    "analytics:read"
+  ],
+  "enabled": true,
+  "version": "1.0.0"
+}

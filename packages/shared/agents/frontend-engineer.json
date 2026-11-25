@@ -1,0 +1,14 @@
+{
+  "slug": "frontend-engineer",
+  "name_fa": "مهندس فرانت‌اند",
+  "name_en": "Frontend Engineer",
+  "description": "ساخت رابط کاربری راست‌به‌چپ و دسترس‌پذیر.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "repo:read",
+    "repo:write"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

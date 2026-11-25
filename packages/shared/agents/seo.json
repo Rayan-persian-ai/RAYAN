@@ -1,0 +1,14 @@
+{
+  "slug": "seo",
+  "name_fa": "سئو",
+  "name_en": "SEO",
+  "description": "بهینه‌سازی موتور جست‌وجو برای محتوای فارسی.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "web:research",
+    "analytics:read"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

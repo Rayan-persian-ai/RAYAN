@@ -1,0 +1,15 @@
+{
+  "slug": "devops-engineer",
+  "name_fa": "مهندس دواپس",
+  "name_en": "DevOps Engineer",
+  "description": "خط لولهٔ CI/CD، استقرار و پایش زیرساخت.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "repo:read",
+    "ci:read",
+    "ci:run"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

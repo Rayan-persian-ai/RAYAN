@@ -1,0 +1,15 @@
+{
+  "slug": "security-engineer",
+  "name_fa": "مهندس امنیت",
+  "name_en": "Security Engineer",
+  "description": "بررسی امنیتی کد، وابستگی‌ها و پیکربندی.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "repo:read",
+    "ci:read",
+    "security:scan"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

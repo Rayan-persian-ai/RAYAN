@@ -1,0 +1,15 @@
+{
+  "slug": "database-engineer",
+  "name_fa": "مهندس پایگاه داده",
+  "name_en": "Database Engineer",
+  "description": "طراحی طرح‌واره، مهاجرت‌ها و بهینه‌سازی کوئری‌ها.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "repo:read",
+    "db:read",
+    "db:migrate"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

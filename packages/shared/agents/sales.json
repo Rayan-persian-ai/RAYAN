@@ -1,0 +1,13 @@
+{
+  "slug": "sales",
+  "name_fa": "فروش",
+  "name_en": "Sales",
+  "description": "پیگیری سرنخ‌ها و تهیهٔ پیشنهاد فروش.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "crm:read"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

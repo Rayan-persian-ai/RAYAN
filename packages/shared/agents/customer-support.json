@@ -1,0 +1,14 @@
+{
+  "slug": "customer-support",
+  "name_fa": "پشتیبانی مشتری",
+  "name_en": "Customer Support",
+  "description": "پاسخ‌گویی به پرسش‌های کاربران به زبان فارسی.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "support:reply",
+    "crm:read"
+  ],
+  "enabled": true,
+  "version": "1.0.0"
+}

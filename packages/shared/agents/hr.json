@@ -1,0 +1,13 @@
+{
+  "slug": "hr",
+  "name_fa": "منابع انسانی",
+  "name_en": "HR",
+  "description": "فرایندهای منابع انسانی و مستندسازی نقش‌ها.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "hr:read"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}
