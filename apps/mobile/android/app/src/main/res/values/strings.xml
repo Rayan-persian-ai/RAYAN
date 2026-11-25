@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">رایان</string>
+    <string name="title_activity_main">رایان</string>
+    <string name="package_name">com.rayan.ai</string>
+    <string name="custom_url_scheme">com.rayan.ai</string>
+</resources>

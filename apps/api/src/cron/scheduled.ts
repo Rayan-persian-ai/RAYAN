@@ -1,5 +1,6 @@
 import type { AppDeps } from "../deps";
 import type { Env } from "../env";
+import { autopilotScheduler } from "../lib/autopilot";
 import { processPendingTasks, type ProcessOptions } from "./processor";
 
 /** Runs one job and records its health in scheduled_jobs. Never throws. */
@@ -43,6 +44,8 @@ export async function runScheduled(env: Env, deps: AppDeps, cron: string | null,
   const results = [];
   results.push(await runJob(env, deps, "task_processor", cron, () => processPendingTasks(env, deps, opts)));
   results.push(await runJob(env, deps, "maintenance", cron, () => maintenance(env, deps.now())));
+  // Autopilot jobs (D1 locks + per-slot idempotency keys, so overlapping cron invocations are safe).
+  results.push(await runJob(env, deps, "autopilot", cron, () => autopilotScheduler(env, deps).tick(new Date(deps.now()))));
   results.push(await runJob(env, deps, "heartbeat", cron, async () => ({ at: deps.now() })));
   return results;
 }

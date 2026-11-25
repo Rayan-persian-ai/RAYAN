@@ -2,9 +2,11 @@
   "name": "rayan",
   "private": true,
   "version": "0.1.0",
-  "description": "RAYAN \u2014 Persian-first AI platform (Phase 1: Foundation)",
+  "description": "RAYAN — Persian-first AI platform (Phase 2: Cortex + Autopilot wired into API/web)",
   "workspaces": [
     "packages/shared",
+    "packages/cortex",
+    "packages/autopilot",
     "apps/api",
     "apps/web"
   ],
@@ -16,7 +18,8 @@
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "dev:api": "npm run dev -w @rayan/api",
-    "dev:web": "npm run dev -w @rayan/web"
+    "dev:web": "npm run dev -w @rayan/web",
+    "build:modules": "npm run build -w @rayan/cortex -w @rayan/autopilot"
   },
   "devDependencies": {
     "typescript": "~5.9.3"

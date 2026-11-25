@@ -141,6 +141,7 @@ describe("scheduler heartbeat and /api/health", () => {
     expect(results.map((r) => [r.name, r.status])).toEqual([
       ["task_processor", "ok"],
       ["maintenance", "ok"],
+      ["autopilot", "ok"],
       ["heartbeat", "ok"],
     ]);
     h = await c.json("GET", "/api/health");
@@ -159,6 +160,7 @@ describe("scheduler heartbeat and /api/health", () => {
     expect((await getTask(id))!.status).toBe("succeeded");
     const { results } = await env.DB.prepare("SELECT name, last_status, run_count FROM scheduled_jobs ORDER BY name").all();
     expect(results).toEqual([
+      { name: "autopilot", last_status: "ok", run_count: 1 },
       { name: "heartbeat", last_status: "ok", run_count: 1 },
       { name: "maintenance", last_status: "ok", run_count: 1 },
       { name: "task_processor", last_status: "ok", run_count: 1 },

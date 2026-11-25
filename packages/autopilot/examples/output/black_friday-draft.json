@@ -1,0 +1,125 @@
+{
+  "id": "cmp_1dj1axk_20261127",
+  "version": 1,
+  "status": "pending_approval",
+  "businessId": "biz_digi",
+  "event": {
+    "id": "black_friday",
+    "instanceId": "black_friday@2026-11-27",
+    "titleFa": "بلک فرایدی (جمعه سیاه)",
+    "date": "2026-11-27",
+    "jalaliDate": "1405/09/06",
+    "approximate": false
+  },
+  "createdAt": "2026-11-25T08:00:00.000Z",
+  "relevance": {
+    "score": 70,
+    "recommendation": "recommended",
+    "reasons": [
+      "تناسب حوزهٔ کسب‌وکار با موضوعات: sale، tech، shopping",
+      "زمان کافی برای آماده‌سازی کامل نیست؛ نسخهٔ سبک و سریع پیشنهاد می‌شود."
+    ],
+    "daysUntil": 2
+  },
+  "idea": {
+    "title": "بزرگ‌ترین فروش سال دیجی‌کالای محله",
+    "summary": "معرفی پرفروش‌ترین محصولات با بهترین قیمت سال برای بلک فرایدی (جمعه سیاه).",
+    "angle": "بهترین قیمت سال"
+  },
+  "copy": {
+    "headline": "بهترین قیمت‌های سال در دیجی‌کالای محله",
+    "body": "بلک فرایدی (جمعه سیاه) امسال را از دست ندهید: ۳۰٪ تخفیف برای خریدهای آنلاین از دیجی‌کالای محله. کد تخفیف: BLACKF05XK.",
+    "cta": "مشاهده و خرید",
+    "sms": "دیجی‌کالای محله: بهترین قیمت سال، ۳۰٪ تخفیف با کد BLACKF05XK",
+    "hashtags": [
+      "#بلک_فرایدی_جمعه_سیاه",
+      "#دیجی_کالای_محله",
+      "#تخفیف"
+    ]
+  },
+  "discount": {
+    "type": "percent",
+    "value": 30,
+    "code": "BLACKF05XK",
+    "validFrom": "2026-11-20",
+    "validTo": "2026-11-28",
+    "rationale": "پایهٔ ۳۰٪ برای این نوع مناسبت، تعدیل‌شده با سطح قیمت و سقف ۳۰٪."
+  },
+  "audience": {
+    "definition": {
+      "channel": "sms",
+      "consentRequired": true
+    },
+    "contactIds": [],
+    "size": 0,
+    "excluded": {
+      "noConsent": 0,
+      "noAddress": 0,
+      "filteredOut": 0
+    }
+  },
+  "banner": {
+    "format": "social_banner",
+    "width": 1200,
+    "height": 628,
+    "lang": "fa",
+    "direction": "rtl",
+    "fontFamily": "Vazirmatn, Vazir, Tahoma, 'DejaVu Sans', sans-serif",
+    "background": {
+      "from": "#0b0b0b",
+      "to": "#2e2e2e"
+    },
+    "textColor": "#ffffff",
+    "accentColor": "#f5c518",
+    "ctaTextColor": "#111111",
+    "brand": "دیجی‌کالای محله",
+    "headline": "بهترین قیمت‌های سال در دیجی‌کالای محله",
+    "subline": "بزرگ‌ترین فروش سال دیجی‌کالای محله",
+    "cta": "مشاهده و خرید",
+    "badge": "۳۰٪ تخفیف",
+    "code": "BLACKF05XK",
+    "motif": "tag",
+    "dateLabel": "۶ آذر ۱۴۰۵"
+  },
+  "poster": {
+    "format": "story_poster",
+    "width": 1080,
+    "height": 1920,
+    "lang": "fa",
+    "direction": "rtl",
+    "fontFamily": "Vazirmatn, Vazir, Tahoma, 'DejaVu Sans', sans-serif",
+    "background": {
+      "from": "#0b0b0b",
+      "to": "#2e2e2e"
+    },
+    "textColor": "#ffffff",
+    "accentColor": "#f5c518",
+    "ctaTextColor": "#111111",
+    "brand": "دیجی‌کالای محله",
+    "headline": "بهترین قیمت‌های سال در دیجی‌کالای محله",
+    "subline": "بزرگ‌ترین فروش سال دیجی‌کالای محله",
+    "cta": "مشاهده و خرید",
+    "badge": "۳۰٪ تخفیف",
+    "code": "BLACKF05XK",
+    "motif": "tag",
+    "dateLabel": "۶ آذر ۱۴۰۵"
+  },
+  "assets": "(see files)",
+  "schedule": {
+    "startDate": "2026-11-25",
+    "suggestedSendDate": "2026-11-25",
+    "suggestedSendLocalTime": "10:00 Asia/Tehran"
+  },
+  "generator": "template",
+  "warnings": [
+    "هیچ مخاطبِ دارای رضایت دریافت پیام تبلیغاتی در این مخاطبان نیست."
+  ],
+  "tags": [
+    "sale",
+    "shopping",
+    "tech",
+    "fashion",
+    "beauty",
+    "home"
+  ]
+}

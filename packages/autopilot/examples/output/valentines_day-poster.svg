@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920" xml:lang="fa" direction="rtl" font-family="Vazirmatn, Vazir, Tahoma, &apos;DejaVu Sans&apos;, sans-serif" role="img" aria-label="روز ولنتاین را خاص‌تر کنید">
+<title>گل‌فروشی رز — روز ولنتاین را خاص‌تر کنید</title>
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7d1840"/><stop offset="1" stop-color="#d63a72"/></linearGradient></defs>
+<rect width="1080" height="1920" fill="url(#bg)"/>
+<g opacity="0.22"><path fill="#ffe3ee" d="M924.48 1861.68 C 768.96 1754.76, 866.16 1638.1200000000001, 924.48 1730.46 C 982.8000000000001 1638.1200000000001, 1080 1754.76, 924.48 1861.68 Z"/><path fill="#ffe3ee" d="M136.07999999999998 1864.596 C 27.215999999999994 1789.752, 95.256 1708.1039999999998, 136.07999999999998 1772.742 C 176.90399999999997 1708.1039999999998, 244.94399999999996 1789.752, 136.07999999999998 1864.596 Z"/><path fill="#ffe3ee" d="M963.36 208.008 C 870.048 143.856, 928.368 73.87200000000001, 963.36 129.276 C 998.352 73.87200000000001, 1056.672 143.856, 963.36 208.008 Z"/></g>
+<text x="540" y="192" font-size="48.6" fill="#ffffff" text-anchor="middle" direction="rtl" unicode-bidi="embed" font-weight="700" opacity="0.92">‫گل‌فروشی رز‬</text>
+<text x="540" y="652.8" font-size="91.8" fill="#ffffff" text-anchor="middle" direction="rtl" unicode-bidi="embed" font-weight="800">‫روز ولنتاین را‬</text>
+<text x="540" y="772.1" font-size="91.8" fill="#ffffff" text-anchor="middle" direction="rtl" unicode-bidi="embed" font-weight="800">‫خاص‌تر کنید‬</text>
+<text x="540" y="905.1" font-size="45.4" fill="#ffffff" text-anchor="middle" direction="rtl" unicode-bidi="embed" opacity="0.95">‫روز ولنتاین به سبک گل‌فروشی رز‬</text>
+<rect x="323.7" y="1075.2" width="432.5" height="106.9" rx="53.5" fill="#ffe3ee"/>
+<text x="540" y="1145.7" font-size="48.6" font-weight="700" fill="#111111" text-anchor="middle" direction="rtl" unicode-bidi="embed">‫مشاهده و خرید‬</text>
+<text x="540" y="1242.9" font-size="41.3" fill="#ffffff" text-anchor="middle" direction="rtl" unicode-bidi="embed" font-weight="600">‫کد تخفیف: VALENT052D‬</text>
+<text x="540" y="1308.5" font-size="34" fill="#ffffff" text-anchor="middle" direction="rtl" unicode-bidi="embed" opacity="0.85">‫۲۵ بهمن ۱۴۰۵‬</text>
+<circle cx="162" cy="326.4" r="129.6" fill="#ffe3ee"/>
+<text x="162" y="319.9" font-size="64.8" font-weight="800" fill="#111111" text-anchor="middle" direction="rtl" unicode-bidi="embed">‫۱۵٪‬</text>
+<text x="162" y="384.7" font-size="36.3" font-weight="700" fill="#111111" text-anchor="middle" direction="rtl" unicode-bidi="embed">‫تخفیف‬</text>
+</svg>

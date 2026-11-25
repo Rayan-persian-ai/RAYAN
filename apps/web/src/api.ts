@@ -17,13 +17,49 @@ export class ApiError extends Error {
   }
 }
 
-/** Same-origin JSON client. The session lives in an HttpOnly cookie the browser sends automatically. */
+/** Accepts only absolute http(s) URLs; strips trailing slashes. Anything else means "same origin". */
+export function normalizeBase(v: unknown): string {
+  if (typeof v !== "string" || !v.trim()) return "";
+  try {
+    const u = new URL(v.trim());
+    if (u.protocol !== "https:" && u.protocol !== "http:") return "";
+    return u.toString().replace(/\/+$/, "");
+  } catch {
+    return "";
+  }
+}
+
+let basePromise: Promise<string> | undefined;
+
+/**
+ * API base URL. Order: `apiBaseUrl` in /rayan-config.json (written by the Android/Windows shells),
+ * then VITE_API_BASE_URL at build time, else same origin (Cloudflare Pages proxies /api to the Worker).
+ */
+export function apiBase(): Promise<string> {
+  basePromise ??= (async () => {
+    try {
+      const res = await fetch("/rayan-config.json", { cache: "no-store", credentials: "omit" });
+      if (res.ok && (res.headers.get("content-type") ?? "").includes("json")) {
+        const cfg = (await res.json()) as { apiBaseUrl?: unknown };
+        const fromCfg = normalizeBase(cfg.apiBaseUrl);
+        if (fromCfg) return fromCfg;
+      }
+    } catch {
+      /* optional file */
+    }
+    return normalizeBase(import.meta.env.VITE_API_BASE_URL);
+  })();
+  return basePromise;
+}
+
+/** JSON client. The session lives in an HttpOnly cookie the browser sends automatically. */
 export async function api<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response;
+  const base = await apiBase();
   try {
-    res = await fetch(`/api${path}`, {
+    res = await fetch(`${base}/api${path}`, {
       method,
-      credentials: "same-origin",
+      credentials: base ? "include" : "same-origin",
       headers: body !== undefined ? { "content-type": "application/json" } : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });

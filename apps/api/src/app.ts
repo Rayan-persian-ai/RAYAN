@@ -7,7 +7,9 @@ import { corsMiddleware, noStore, originGuard, securityHeaders } from "./middlew
 import { adminRoutes } from "./routes/admin";
 import { agentRoutes } from "./routes/agents";
 import { authRoutes } from "./routes/auth";
+import { autopilotRoutes } from "./routes/autopilot";
 import { chatRoutes } from "./routes/chat";
+import { cortexRoutes } from "./routes/cortex";
 import { healthRoutes } from "./routes/health";
 import { meRoutes } from "./routes/me";
 import { taskRoutes } from "./routes/tasks";
@@ -34,6 +36,8 @@ export function createApp(deps: AppDeps) {
   app.route("/api/agents", agentRoutes);
   app.route("/api/tasks", taskRoutes);
   app.route("/api/admin", adminRoutes);
+  app.route("/api/cortex", cortexRoutes);
+  app.route("/api/autopilot", autopilotRoutes);
 
   app.notFound((c) => c.json(errorBody("not_found"), 404));
   app.onError((err, c) => {

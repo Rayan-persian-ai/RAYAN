@@ -21,6 +21,8 @@ export type TaskHandler = (ctx: TaskContext) => Promise<unknown>;
 
 export interface AppDeps {
   ai: AiProvider;
+  /** Optional overrides for cortex tools (e.g. a stub fetch in tests). */
+  cortexRuntime?: import("./lib/cortex").CortexRuntimeDeps;
   taskHandlers: Record<string, TaskHandler>;
   now: () => number;
 }

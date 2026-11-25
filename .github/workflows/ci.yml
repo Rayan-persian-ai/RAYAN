@@ -34,11 +34,13 @@ jobs:
           npm run gen:agents-sql -w @rayan/api
           git diff --exit-code -- apps/api/migrations
 
+      # Root scripts run every workspace (shared, cortex, autopilot, api, web). @rayan/api's pre-scripts build
+      # @rayan/cortex + @rayan/autopilot first, because the API imports their dist/ output.
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test (vitest in workerd + local D1; AI is mocked, no network/paid calls)
+      - name: Test (modules on Node 22 incl. node:sqlite; API in workerd + local D1; AI mocked, no network/paid calls)
         run: npm test
 
-      - name: Build (web bundle + Worker dry-run bundle, no Cloudflare credentials needed)
+      - name: Build (cortex/autopilot dist, web bundle, Worker dry-run bundle; no Cloudflare credentials needed)
         run: npm run build

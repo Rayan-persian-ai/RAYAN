@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev --config wrangler.dev.toml --test-scheduled",
+    "prebuild": "npm run build:modules --prefix ../..",
     "build": "wrangler deploy --dry-run --outdir dist",
+    "pretypecheck": "npm run build:modules --prefix ../..",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pretest": "npm run build:modules --prefix ../..",
     "test": "vitest run",
     "db:migrate:local": "wrangler d1 migrations apply rayan-db --local --config wrangler.dev.toml",
     "db:migrate:remote": "wrangler d1 migrations apply rayan-db --remote",
@@ -15,6 +18,8 @@
     "dev:remote-ai": "wrangler dev --test-scheduled"
   },
   "dependencies": {
+    "@rayan/autopilot": "*",
+    "@rayan/cortex": "*",
     "@rayan/shared": "*",
     "hono": "^4.13.0",
     "zod": "^4.5.0"

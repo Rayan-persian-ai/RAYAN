@@ -2,13 +2,14 @@
 
 # رایان (RAYAN) — سکوی هوش مصنوعی فارسی
 
-**فاز ۱: زیرساخت (Foundation)** — یک مونوریپوی کامل و آزموده‌شده روی لایهٔ رایگان Cloudflare با هزینهٔ صفر.
+**فاز ۱: زیرساخت (Foundation)** + **فاز ۲: اتصال هستهٔ عامل‌ها (Cortex) و اتوپایلوت (Autopilot) به محصول** — یک مونوریپوی کامل و آزموده‌شده روی لایهٔ رایگان Cloudflare با هزینهٔ صفر.
 
 - رابط کاربری فارسی و راست‌به‌چپ (`lang="fa"`, `dir="rtl"`) با قلم وزیرمتن
 - API روی Cloudflare Workers با Hono و پایگاه دادهٔ D1 (SQLite)
 - احراز هویت امن (PBKDF2 + کوکی نشست HttpOnly)، کنترل دسترسی نقش‌محور (RBAC)، محدودیت نرخ، گزارش ممیزی
 - کنترل‌گر هزینه (Cost Controller) با سقف روزانه برای Workers AI
 - رجیستری ۲۰ عامل هوشمند، صف وظایف و زمان‌بند Cron هر ۱۵ دقیقه
+- **فاز ۲:** `@rayan/cortex` (هدف → نیت → برنامهٔ DAG → عامل‌های رجیستری → اجرا با تأیید انسانی) و `@rayan/autopilot` (تقویم مناسبت‌های ایرانی به وقت تهران، پیش‌نویس کمپین با بنر SVG راست‌به‌چپ، دروازهٔ تأیید، زمان‌بند D1) در API و وب
 
 > هیچ سرویس پولی، هیچ ارتقای خودکار و هیچ رازی (secret) در کد وجود ندارد.
 
@@ -38,7 +39,7 @@
 
 ```
 rayan/
-├─ package.json                 npm workspaces: packages/shared, apps/api, apps/web
+├─ package.json                 npm workspaces: packages/{shared,cortex,autopilot}, apps/{api,web}
 ├─ .github/workflows/
 │  ├─ ci.yml                    install → typecheck → test → build
 │  └─ deploy.yml                فقط وقتی CLOUDFLARE_API_TOKEN و CLOUDFLARE_ACCOUNT_ID وجود دارند
@@ -50,21 +51,22 @@ rayan/
 │  ├─ wrangler.toml             پیکربندی تولید (D1 + AI + Cron)
 │  ├─ wrangler.dev.toml         توسعهٔ محلی آفلاین (بدون AI، بدون نیاز به حساب Cloudflare)
 │  ├─ .dev.vars.example
-│  ├─ migrations/               0001_init · 0002_seed_rbac · 0003_seed_agents (تولیدشده)
+│  ├─ migrations/               0001_init · 0002_seed_rbac · 0003_seed_agents (تولیدشده) · 0004_cortex_autopilot · 0005_seed_phase2
 │  ├─ scripts/gen-agents-sql.mjs
 │  ├─ src/
 │  │  ├─ app.ts                 createApp(deps) — تزریق وابستگی (AI و هندلرهای وظیفه قابل mock)
 │  │  ├─ index.ts               fetch + scheduled
 │  │  ├─ middleware/            auth (RBAC, rate limit) · security (headers, CORS, origin guard)
-│  │  ├─ routes/                auth · me · chat · agents · tasks · admin · health
+│  │  ├─ routes/                auth · me · chat · agents · tasks · admin · health · cortex · autopilot
 │  │  ├─ lib/                   crypto · session · cost · ai · ratelimit · audit · bootstrap · …
 │  │  └─ cron/                  processor · scheduled · handlers
-│  └─ test/                     auth · rbac · ratelimit · cost · tasks · cron
+│  └─ test/                     auth · rbac · ratelimit · cost · tasks · cron · cortex · autopilot
 └─ apps/web/
    ├─ index.html                lang="fa" dir="rtl"
    ├─ functions/api/[[path]].ts پروکسی Pages → Worker
    ├─ public/_headers           CSP سخت‌گیرانه و سرآیندهای امنیتی
-   └─ src/                      main · api · ui · pages/{landing, auth, chat, admin}
+   └─ src/                      main · api · ui · pages/{landing, auth, chat, admin, cortex, automation}
+packages/cortex, packages/autopilot   ماژول‌های مستقل (README جداگانه)؛ API از خروجی dist آن‌ها استفاده می‌کند
 ```
 
 ---
@@ -88,9 +90,10 @@ npm run dev:web             # http://localhost:5173  (Vite؛ /api به 8787 پر
 
 | دستور | کار |
 |---|---|
-| `npm run typecheck` | بررسی نوع در هر سه workspace |
-| `npm test` | آزمون‌های shared (vitest) و api (vitest داخل workerd با D1 محلی) |
-| `npm run build` | ساخت وب (Vite) و باندل Worker با `wrangler deploy --dry-run` |
+| `npm run typecheck` | بررسی نوع در هر پنج workspace (پیش از api، cortex و autopilot ساخته می‌شوند) |
+| `npm test` | آزمون‌های shared، cortex و autopilot (Node ≥ 22.5 به‌خاطر `node:sqlite`) و api (vitest داخل workerd با D1 محلی) |
+| `npm run build` | ساخت dist ماژول‌ها، وب (Vite) و باندل Worker با `wrangler deploy --dry-run` |
+| `npm run build:modules` | فقط ساخت `@rayan/cortex` و `@rayan/autopilot` |
 | `npm run gen:agents-sql -w @rayan/api` | بازتولید `0003_seed_agents.sql` از مانیفست‌ها |
 
 ---
@@ -110,6 +113,8 @@ npx wrangler d1 migrations list rayan-db --remote
 
 **جداول:** `users`, `sessions`, `roles`, `permissions`, `role_permissions`, `user_roles`, `audit_logs`, `tasks`, `agents`, `usage_counters`, `scheduled_jobs`, `feature_flags` و `rate_limits` (وضعیت محدودکنندهٔ نرخ). همهٔ زمان‌ها میلی‌ثانیهٔ Unix هستند.
 
+**جداول فاز ۲ (مهاجرت 0004):** `cortex_memory` (حافظهٔ جداشده به‌ازای کاربر)، `cortex_audit` (فقط‌افزودنی با زنجیرهٔ هش)، `cortex_tasks` و `cortex_task_steps` (برنامه و نتیجهٔ هر اجرا؛ ستون `task_ref` به `tasks.id` برای اجراهای صف)، `cortex_approvals`، `cortex_quota_usage`، و `autopilot_jobs`, `autopilot_job_runs`, `autopilot_events`, `autopilot_campaigns`, `autopilot_approvals` (فقط‌افزودنی)، `autopilot_snapshots`, `autopilot_site_pointers`, `autopilot_send_log`, `autopilot_send_dedupe`. نام ایندکس‌ها و تریگرها پیشوند `cortex_`/`autopilot_` دارند تا با جداول فاز ۱ تداخل نکنند. مهاجرت 0005 مجوزهای جدید و کار زمان‌بندی‌شدهٔ `autopilot.scan_events` را می‌افزاید.
+
 ---
 
 ## ۴. رازها و متغیرها (Secrets / Vars)
@@ -119,7 +124,8 @@ npx wrangler d1 migrations list rayan-db --remote
 | `OWNER_EMAIL` | Wrangler **secret** | `npx wrangler secret put OWNER_EMAIL` یا رازِ مخزن `OWNER_EMAIL` | ایمیل مالک که پس از **ورود موفق و تأییدشده** به `super_admin` ارتقا می‌یابد. مقدار مورد نظر: `jalilitaymaz@gmail.com` — عمداً در کد/پیکربندی قرار ندارد. |
 | `CLOUDFLARE_API_TOKEN` | GitHub secret | Settings → Secrets → Actions | توکن با دسترسی Workers Scripts, D1, Pages (Edit) و Workers AI (Read) |
 | `CLOUDFLARE_ACCOUNT_ID` | GitHub secret | همان‌جا | شناسهٔ حساب Cloudflare |
-| `ALLOWED_ORIGINS` | var (wrangler.toml) / GitHub **variable** اختیاری | `vars.ALLOWED_ORIGINS` | فهرست دقیق مبدأهای مجاز با کاما؛ باید آدرس واقعی Pages شما باشد (مثلاً `https://rayan-web.pages.dev`) |
+| `ALLOWED_ORIGINS` | var (wrangler.toml) / GitHub **variable** اختیاری | `vars.ALLOWED_ORIGINS` | فهرست دقیق مبدأهای مجاز با کاما؛ باید آدرس واقعی Pages شما باشد (مثلاً `https://rayan-web.pages.dev`). مبدأهای پوستهٔ اپ‌ها (`https://localhost` اندروید و `http://tauri.localhost` ویندوز) همیشه علاوه بر این فهرست مجازند. |
+| `VITE_API_BASE_URL` | متغیر زمان ساخت وب (اختیاری) | محیط ساخت | آدرس مطلق API برای ساخت‌هایی که خارج از Pages سرو می‌شوند؛ خالی = هم‌مبدأ (`/api`). پوسته‌ها می‌توانند `apiBaseUrl` را در `/rayan-config.json` بنویسند که اولویت دارد. |
 | `PAGES_PROJECT` | GitHub variable اختیاری | `vars.PAGES_PROJECT` | نام پروژهٔ Pages (پیش‌فرض `rayan-web`) |
 | `AI_MODEL` | var | wrangler.toml | پیش‌فرض `@cf/meta/llama-3.1-8b-instruct` |
 | `AI_DAILY_LIMIT` | var | wrangler.toml | سقف پیش‌فرض روزانهٔ فراخوانی AI (۶۰) — در پنل مدیریت قابل تغییر |
@@ -176,8 +182,38 @@ npx wrangler d1 migrations list rayan-db --remote
 | `GET /api/admin/usage` · `PUT /api/admin/usage/workers_ai` | `usage:read` · `usage:manage` | مصرف و سقف |
 | `GET /api/admin/flags` · `PUT /api/admin/flags/:key` | `usage:read` · `flags:manage` | پرچم‌ها |
 | `GET /api/admin/scheduler` | `usage:read` | سلامت کارهای زمان‌بند |
+| `POST /api/cortex/run` | `cortex:run` (member+) | اجرای هدف: محافظ → نیت → برنامه → عامل‌ها → اجرا → ارزیابی. بدنه: `{goal, tool_inputs?}` |
+| `POST /api/cortex/content` | `cortex:run` | استودیو محتوا: `{kind: article\|post\|ad, topic, audience?, tone?}` → پیش‌نویس (منتشر نمی‌شود) |
+| `GET /api/cortex/runs` · `GET /api/cortex/runs/:id` | `cortex:run` (فقط اجراهای خود) | تاریخچه و مراحل |
+| `GET /api/cortex/approvals[?status=]` | `cortex:run` | درخواست‌های تأیید خودِ کاربر |
+| `POST /api/cortex/approvals/:id/approve` · `/reject` | `cortex:run` + مالکیت؛ سطح restricted فقط super_admin | تأیید یک‌بارمصرف |
+| `POST /api/tasks` با `type: "cortex.run"` | `tasks:create` + `cortex:run` | اجرای Cortex در صف Cron (`payload: {goal}`) |
+| `GET /api/autopilot/events?days=60` | `autopilot:read` (admin+) | مناسبت‌های پیش رو به وقت تهران (۱ تا ۳۶۶ روز) |
+| `POST /api/autopilot/campaigns/draft` | `autopilot:manage` | `{event_id, business, use_llm?}` → پیش‌نویس `pending_approval` با بنر SVG؛ رویداد سوگواری = 409 |
+| `GET /api/autopilot/campaigns[?status=]` · `GET /api/autopilot/campaigns/:id` | `autopilot:read` | فهرست/جزئیات (+ سوابق تأیید) |
+| `POST /api/autopilot/campaigns/:id/approve` · `/reject` | `autopilot:approve` | تصمیم انسانی، ثبت تأییدکننده و هش محتوا در `autopilot_approvals`؛ **هرگز انتشار خودکار نیست** |
+| `GET /api/autopilot/jobs` · `POST /api/autopilot/jobs` | `autopilot:read` · `autopilot:manage` | کارهای زمان‌بندی‌شده (+ ۵ اجرای اخیر) / ساخت کار با کرون معتبر |
+| `POST /api/autopilot/jobs/:id` | `autopilot:manage` | `{action: pause\|resume\|run_now\|delete}` |
 
 **صف وظایف:** وضعیت‌ها `pending → running → succeeded | failed | cancelled`. پردازشگر Cron در هر اجرا حداکثر ۱۰ وظیفه را برمی‌دارد، هر وظیفه را حداکثر یک بار در هر اجرا تلاش می‌کند، `attempts` را به‌صورت اتمی هنگام برداشتن افزایش می‌دهد و هرگز وظیفه‌ای با `attempts >= max_attempts` را دوباره برنمی‌دارد (بدون حلقهٔ بی‌پایان). وظایفی که lease آن‌ها منقضی شده بازیابی می‌شوند؛ خطاهای غیرقابل‌تکرار (نوع ناشناخته، ورودی نامعتبر) فوراً `failed` می‌شوند. ضربان (heartbeat) در `scheduled_jobs` ثبت و در `/api/health` گزارش می‌شود (بیش از ۳۵ دقیقه = `stale`).
+
+### Cortex در API (فاز ۲)
+
+- **LLM:** همان `AiProvider` (Workers AI در تولید، mock در آزمون). هر فراخوانی مدل یک واحد از **همان Cost Controller** (`usage_counters`, `AI_DAILY_LIMIT`) رزرو می‌کند و کلید `ai_enabled` را رعایت می‌کند؛ اگر سهمیهٔ امروز تمام شده باشد پیش از هر کاری ۴۲۹ برمی‌گردد و در میانهٔ اجرا هم از سقف عبور نمی‌شود. نیت با کلیدواژه و برنامه با قالب ساخته می‌شود (بدون فراخوانی اضافهٔ مدل)؛ هر مرحله یک فراخوانی است (مثلاً تولید محتوا = ۳)، بدون retry.
+- **عامل‌ها:** از جدول `agents` (وضعیت فعال/غیرفعال و مجوزهای مانیفست). برای هر slug یک پروفایل قابلیت/ابزار بازبینی‌شده در `src/lib/cortex.ts` هست؛ مجوزها هرگز فراتر از مانیفست نمی‌روند.
+- **ابزارها:** `web.search` (DuckDuckGo Instant Answer رایگان، بدون کلید)، `web.fetch` (فقط https عمومی، ۲۰۰KB)، `admin.read` (خلاصهٔ وضعیت بدون دادهٔ شخصی)، `scheduler.create` (guarded) و `admin.write` (restricted). این دو ابزار حساس هیچ پیکربندی را تغییر نمی‌دهند و پس از تأیید فقط یک «درخواست» در `audit_logs` ثبت می‌کنند.
+- **تأیید:** اقدام guarded/restricted اجرا نمی‌شود و ردیف `pending` در `cortex_approvals` می‌سازد. تأیید فقط توسط صاحب درخواست؛ restricted فقط با نقش super_admin (= owner). پس از تأیید، اجرای دوبارهٔ **همان هدف** آن اقدام را **یک بار** انجام می‌دهد (grant در ابتدای اجرا به‌صورت اتمی `consumed` می‌شود و اگر لازم نشد برمی‌گردد).
+- **حافظه:** `D1MemoryAdapter` با `user_id` کاربر واردشده؛ اجراها و مراحل در `cortex_tasks`/`cortex_task_steps`.
+
+### Autopilot در API (فاز ۲)
+
+- `scheduled()` (هر ۱۵ دقیقه) علاوه بر کارهای فاز ۱، `Scheduler.tick()` را با `D1SchedulerStore` اجرا می‌کند (قفل اجاره‌ای + کلید یکتایی هر نوبت) و سلامتش در `scheduled_jobs` با نام `autopilot` ثبت می‌شود.
+- **کار واقعی:** `autopilot.scan_events` روزانه ساعت ۹ به وقت تهران (اولین اجرا در اولین Cron پس از استقرار): برای مناسبت‌های مرتبطِ ۱۴ روز آینده پیش‌نویس کمپین می‌سازد (سوگواری و نامرتبط‌ها رد می‌شوند، برای هر مناسبت فقط یک پیش‌نویس). پیش‌فرض بدون LLM (قالب فارسی قطعی)؛ با `useLlm` متن از Workers AI و از همان سقف هزینه.
+- هیچ مسیری برای انتشار یا ارسال در این فاز وجود ندارد؛ تأیید فقط وضعیت را `approved` می‌کند و رکورد فقط‌افزودنی می‌سازد.
+
+### وب (فاز ۲)
+
+صفحه‌های جدید (فقط فراخوانی واقعی API، نمایش بر اساس مجوز): **فضای کاری عامل‌ها** (`#/workspace`: ارسال هدف، برنامه/مراحل/خروجی، تأیید/رد)، **مرکز وظایف** (`#/tasks`: ایجاد وظیفهٔ cortex.run، فهرست، وضعیت، لغو)، **استودیو محتوا** (`#/content`) و **مرکز اتوماسیون** (`#/automation`، مدیران: مناسبت‌ها، پیش‌نویس‌ها با پیش‌نمایش بنر SVG از طریق `<img>` امن، تأیید/رد، کارها). آدرس API از `/rayan-config.json` (کلید `apiBaseUrl`) یا `VITE_API_BASE_URL` خوانده می‌شود و در غیر این صورت هم‌مبدأ است.
 
 ---
 
@@ -220,14 +256,24 @@ npx wrangler d1 migrations list rayan-db --remote
 
 ---
 
-## ۱۱. محدودیت‌های شناخته‌شدهٔ فاز ۱
+## ۱۱. وضعیت فاز ۲ و محدودیت‌های آن
+
+- ✅ Cortex و Autopilot به API، Cron و وب وصل شده‌اند؛ ۱۸ آزمون جدید (RBAC، سقف هزینه، کلید خاموشی، تأیید guarded/restricted و یک‌بارمصرف بودن، صف cortex.run، CORS پوسته‌ها، رویدادها، پیش‌نویس/تأیید/رد کمپین، اجرای کار زمان‌بندی‌شده و API کارها).
+- اپ‌های اندروید/ویندوز مبدأ متفاوت دارند؛ CORS مجاز است، اما کوکی نشست `SameSite=Lax` در درخواست‌های بین‌مبدأ ارسال نمی‌شود. ورود از داخل پوسته‌ها به احراز هویت مبتنی بر توکن یا `SameSite=None` نیاز دارد (فاز بعد). همچنین CSP صفحات Pages فقط `connect-src 'self'` را مجاز می‌کند؛ `VITE_API_BASE_URL` برای ساخت‌های پوسته است، نه Pages.
+- اجرای `/api/cortex/run` هم‌زمان (sync) است و محدود به ~۲۵ ثانیه؛ اهداف طولانی را با وظیفهٔ `cortex.run` در صف بگذارید. در پلن رایگان، سقف ۱۰ms CPU در هر درخواست ممکن است برای برنامه‌های چندمرحله‌ای تنگ باشد (زمان انتظار برای AI جزو CPU نیست).
+- تأیید Cortex فقط برای «تکرار همان هدف» است (اثرانگشت = کاربر + عامل + ابزار + ورودی)؛ تأیید یک درخواست برای کاربر دیگر ممکن نیست.
+- `image.generate` ثبت نشده است و عامل «طراحی گرافیک» فقط `image.prompt` دارد؛ نیت تصویر فعلاً با خطای «ابزار ناشناخته» ناقص تمام می‌شود.
+- بیشتر عامل‌ها به‌صورت پیش‌فرض غیرفعال‌اند؛ نیت‌های کد/تحلیل فقط با عامل‌های فعال اجرا می‌شوند (مدیر‌عامل هوش مصنوعی به‌عنوان عمومی تحلیل/اتوماسیون/مدیریت را پوشش می‌دهد).
+- تاریخ‌های قمری اتوپایلوت تقریبی‌اند (±۱–۲ روز)؛ مخاطب/ارسال پیامک و ایمیل هنوز وصل نیست (پیش‌نویس‌ها `contacts` خالی دارند).
+
+## ۱۲. محدودیت‌های شناخته‌شدهٔ فاز ۱
 
 - تأیید ایمیل وجود ندارد؛ اگر کسی پیش از مالک با `OWNER_EMAIL` ثبت‌نام کند، با ورود خود super_admin می‌شود. **بلافاصله پس از استقرار ثبت‌نام و وارد شوید** و در صورت نیاز سپس پرچم `signup_enabled` را از پنل مدیریت خاموش کنید. تأیید ایمیل در فاز ۶.
 - PBKDF2 با ۱۰۰ هزار تکرار ممکن است گاهی از سقف ۱۰ms CPU پلن رایگان عبور کند؛ قالب هش شمار تکرار را ذخیره می‌کند، پس می‌توان `PBKDF2_ITERATIONS` را بدون شکستن حساب‌های موجود کاهش داد.
 - محدودکنندهٔ نرخ پنجرهٔ ثابت است و برای هر درخواست یک نوشتن D1 مصرف می‌کند.
 - کیفیت فارسی مدل ۸ میلیاردی Llama محدود است؛ مدل از طریق `AI_MODEL` قابل تغییر است.
 - تاریخچهٔ چت فقط در حافظهٔ صفحه نگه داشته می‌شود.
-- انواع وظیفه فعلاً `echo` و `ai.prompt` هستند؛ عامل‌ها در فاز ۱ فقط ثبت و کنترل می‌شوند و هنوز اجرا نمی‌شوند.
+- انواع وظیفه: `echo`، `ai.prompt` و (از فاز ۲) `cortex.run`.
 - آزمون‌ها AI را mock می‌کنند؛ فراخوانی واقعی Workers AI فقط پس از استقرار یا با `dev:remote-ai` قابل بررسی است.
 
 </div>

@@ -4,11 +4,15 @@ import { secureHeaders } from "hono/secure-headers";
 import type { AppEnv, Env } from "../env";
 import { errorBody } from "../lib/errors";
 
+/** Origins of the packaged app shells: Android (Capacitor, androidScheme https) and Windows (Tauri). */
+export const APP_SHELL_ORIGINS = ["https://localhost", "http://tauri.localhost"] as const;
+
 export function allowedOrigins(env: Env): string[] {
-  return (env.ALLOWED_ORIGINS ?? "")
+  const configured = (env.ALLOWED_ORIGINS ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+  return [...new Set([...configured, ...APP_SHELL_ORIGINS])];
 }
 
 /** Strict headers for a JSON-only API. */

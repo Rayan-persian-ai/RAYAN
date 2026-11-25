@@ -1,0 +1,19 @@
+{
+  "name": "@rayan/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RAYAN Windows desktop shell (Tauri v2) wrapping apps/web/dist",
+  "type": "module",
+  "scripts": {
+    "stage": "node scripts/stage-web.mjs",
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:windows": "tauri build --bundles nsis,msi",
+    "icons": "bash ../mobile/scripts/generate-assets.sh"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0"
+  },
+  "engines": { "node": ">=20" }
+}
