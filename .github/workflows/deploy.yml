@@ -1,0 +1,111 @@
+name: Deploy to Cloudflare
+
+# Runs on pushes to main and on manual dispatch. It does nothing (and succeeds)
+# unless BOTH repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID exist.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Check Cloudflare secrets
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set; nothing was deployed."
+          fi
+
+  deploy:
+    name: Migrate D1 · deploy Worker · deploy Pages
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_NAME: rayan-db
+      PAGES_PROJECT: ${{ vars.PAGES_PROJECT || 'rayan-web' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Resolve (or create) the D1 database and inject its id
+        working-directory: apps/api
+        run: |
+          find_id() {
+            npx wrangler d1 list --json | node -e '
+              const list = JSON.parse(require("fs").readFileSync(0, "utf8"));
+              const db = list.find((d) => d.name === process.env.D1_NAME);
+              process.stdout.write(db ? db.uuid : "");'
+          }
+          DB_ID="$(find_id)"
+          if [ -z "$DB_ID" ]; then
+            npx wrangler d1 create "$D1_NAME"
+            DB_ID="$(find_id)"
+          fi
+          test -n "$DB_ID"
+          sed -i "s/00000000-0000-0000-0000-000000000000/$DB_ID/" wrangler.toml
+          echo "Using D1 database $D1_NAME ($DB_ID)"
+
+      - name: Apply D1 migrations (remote)
+        working-directory: apps/api
+        run: npx wrangler d1 migrations apply "$D1_NAME" --remote
+
+      - name: Deploy API Worker
+        working-directory: apps/api
+        env:
+          ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+        run: |
+          if [ -n "$ALLOWED_ORIGINS" ]; then
+            npx wrangler deploy --var "ALLOWED_ORIGINS:$ALLOWED_ORIGINS"
+          else
+            npx wrangler deploy
+          fi
+
+      - name: Set OWNER_EMAIL secret (only if provided as a repository secret)
+        working-directory: apps/api
+        env:
+          OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}
+        run: |
+          if [ -n "$OWNER_EMAIL" ]; then
+            printf '%s' "$OWNER_EMAIL" | npx wrangler secret put OWNER_EMAIL
+          else
+            echo "::notice::OWNER_EMAIL repository secret not set; keeping the Worker's existing value."
+          fi
+
+      - name: Build web
+        run: npm run build -w @rayan/web
+
+      - name: Deploy Pages (creates the project on first run)
+        working-directory: apps/web
+        run: |
+          npx wrangler pages project create "$PAGES_PROJECT" --production-branch main || true
+          npx wrangler pages deploy dist --project-name "$PAGES_PROJECT" --branch main
