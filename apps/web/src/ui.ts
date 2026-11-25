@@ -63,3 +63,34 @@ export const STATUS_FA: Record<string, string> = {
   error: "خطا",
 };
 export const statusFa = (s: string | null | undefined) => (s ? (STATUS_FA[s] ?? s) : "—");
+
+/** Simple data table (RTL-aware via CSS logical alignment). */
+export function dataTable(headers: string[], rows: Node[][]) {
+  const body = rows.length
+    ? rows.map((r) => h("tr", {}, ...r.map((cell) => h("td", {}, cell))))
+    : [h("tr", {}, h("td", { colspan: headers.length, class: "muted center" }, "موردی یافت نشد."))];
+  const head = h("thead", {}, h("tr", {}, ...headers.map((x) => h("th", {}, x))));
+  return h("div", { class: "table-wrap" }, h("table", {}, head, h("tbody", {}, ...body)));
+}
+export const text = (s: unknown) => document.createTextNode(s === null || s === undefined ? "—" : String(s));
+export const ltrText = (s: unknown) => h("bdi", { dir: "ltr" }, s === null || s === undefined ? "—" : String(s));
+export const badge = (status: string | null | undefined) => h("span", { class: `badge badge-${status ?? "unknown"}` }, statusFa(status));
+
+Object.assign(STATUS_FA, {
+  completed: "انجام شد",
+  partial: "ناقص",
+  awaiting_approval: "در انتظار تأیید",
+  approved: "تأییدشده",
+  rejected: "ردشده",
+  consumed: "مصرف‌شده",
+  expired: "منقضی",
+  skipped: "ردشده (وابستگی)",
+  pending_approval: "در انتظار تأیید",
+  published: "منتشرشده",
+  sent: "ارسال‌شده",
+  archived: "بایگانی",
+  active: "فعال",
+  paused: "متوقف",
+  guarded: "نیازمند تأیید کاربر",
+  restricted: "فقط با تأیید مالک",
+});

@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { TASK_STATUSES, taskCreateSchema } from "@rayan/shared";
+import { cortexRunSchema, TASK_STATUSES, taskCreateSchema } from "@rayan/shared";
 import type { AppEnv } from "../env";
 import { audit } from "../lib/audit";
 import { newId } from "../lib/crypto";
@@ -14,6 +14,12 @@ taskRoutes.post("/", requirePermission("tasks:create"), async (c) => {
   const input = await parseJson(c, taskCreateSchema);
   if (!c.var.deps.taskHandlers[input.type]) {
     throw new ApiError(400, "invalid_input", { type: `unknown task type '${input.type}'` });
+  }
+  if (input.type === "cortex.run") {
+    if (!c.var.auth!.permissions.has("cortex:run")) throw new ApiError(403, "forbidden");
+    const p = cortexRunSchema.safeParse(input.payload);
+    if (!p.success) throw new ApiError(400, "invalid_input", p.error.issues.map((i) => ({ path: `payload.${i.path.join(".")}`, message: i.message })));
+    input.payload = p.data as Record<string, unknown>;
   }
   if (input.agent_slug) {
     const agent = await c.env.DB.prepare("SELECT enabled FROM agents WHERE slug = ?1")

@@ -22,10 +22,14 @@ export const PERMISSIONS = [
   "usage:read",
   "usage:manage",
   "flags:manage",
+  "cortex:run",
+  "autopilot:read",
+  "autopilot:manage",
+  "autopilot:approve",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
-const MEMBER: Permission[] = ["chat:use", "tasks:create", "tasks:read:own", "tasks:cancel:own", "agents:read"];
+const MEMBER: Permission[] = ["chat:use", "tasks:create", "tasks:read:own", "tasks:cancel:own", "agents:read", "cortex:run"];
 const ADMIN: Permission[] = [
   ...MEMBER,
   "tasks:read:all",
@@ -34,6 +38,9 @@ const ADMIN: Permission[] = [
   "users:read",
   "audit:read",
   "usage:read",
+  "autopilot:read",
+  "autopilot:manage",
+  "autopilot:approve",
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {

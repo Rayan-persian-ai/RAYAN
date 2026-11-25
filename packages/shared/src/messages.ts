@@ -14,5 +14,7 @@ export const ERRORS_FA = {
   conflict: "این عملیات در وضعیت فعلی امکان‌پذیر نیست.",
   origin_not_allowed: "درخواست از مبدأ غیرمجاز ارسال شده است.",
   internal: "خطای داخلی سرور رخ داد.",
+  approval_required: "این اقدام به تأیید انسانی نیاز دارد.",
+  approval_denied: "شما مجاز به تأیید این درخواست نیستید.",
 } as const;
 export type ErrorCode = keyof typeof ERRORS_FA;
