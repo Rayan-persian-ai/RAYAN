@@ -1,0 +1,14 @@
+{
+  "slug": "marketing",
+  "name_fa": "بازاریابی",
+  "name_en": "Marketing",
+  "description": "برنامه‌ریزی کمپین‌ها و پیام‌رسانی برند.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "content:write",
+    "analytics:read"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

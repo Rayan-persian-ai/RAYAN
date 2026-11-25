@@ -1,0 +1,13 @@
+{
+  "slug": "graphic-design",
+  "name_fa": "طراحی گرافیک",
+  "name_en": "Graphic Design",
+  "description": "تهیهٔ طرح‌ها و دارایی‌های تصویری.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "media:generate"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

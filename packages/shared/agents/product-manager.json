@@ -1,0 +1,14 @@
+{
+  "slug": "product-manager",
+  "name_fa": "مدیر محصول",
+  "name_en": "Product Manager",
+  "description": "تعریف نیازمندی‌ها، نقشهٔ راه و اولویت‌بندی بک‌لاگ.",
+  "permissions": [
+    "ai:chat",
+    "tasks:create",
+    "tasks:read",
+    "analytics:read"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

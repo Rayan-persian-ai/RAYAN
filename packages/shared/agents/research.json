@@ -1,0 +1,13 @@
+{
+  "slug": "research",
+  "name_fa": "پژوهشگر",
+  "name_en": "Research",
+  "description": "پژوهش در وب و جمع‌بندی منابع با ذکر مأخذ.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "web:research"
+  ],
+  "enabled": true,
+  "version": "1.0.0"
+}

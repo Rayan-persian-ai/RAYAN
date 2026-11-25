@@ -1,0 +1,15 @@
+{
+  "slug": "qa-engineer",
+  "name_fa": "مهندس تضمین کیفیت",
+  "name_en": "QA Engineer",
+  "description": "نوشتن و اجرای آزمون‌ها و گزارش خطا.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "repo:read",
+    "ci:read",
+    "ci:run"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

@@ -1,0 +1,15 @@
+{
+  "slug": "software-engineer",
+  "name_fa": "مهندس نرم‌افزار",
+  "name_en": "Software Engineer",
+  "description": "پیاده‌سازی قابلیت‌ها و رفع اشکال در مخزن کد.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "repo:read",
+    "repo:write",
+    "ci:read"
+  ],
+  "enabled": true,
+  "version": "1.0.0"
+}

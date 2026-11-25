@@ -1,0 +1,7 @@
+# Copy to apps/api/.dev.vars for `wrangler dev` (git-ignored). Never commit real values.
+# In production set OWNER_EMAIL as a secret:  npx wrangler secret put OWNER_EMAIL
+# Intended production value: the project owner's email (see README) — keep it out of code.
+OWNER_EMAIL=owner@example.com
+ENVIRONMENT=development
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+AI_DAILY_LIMIT=50

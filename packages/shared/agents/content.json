@@ -1,0 +1,13 @@
+{
+  "slug": "content",
+  "name_fa": "تولید محتوا",
+  "name_en": "Content",
+  "description": "نگارش و ویرایش محتوای فارسی.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "content:write"
+  ],
+  "enabled": true,
+  "version": "1.0.0"
+}

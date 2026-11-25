@@ -1,0 +1,15 @@
+{
+  "slug": "backend-engineer",
+  "name_fa": "مهندس بک‌اند",
+  "name_en": "Backend Engineer",
+  "description": "طراحی و پیاده‌سازی API و منطق سمت سرور.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "repo:read",
+    "repo:write",
+    "db:read"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

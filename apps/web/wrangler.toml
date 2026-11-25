@@ -1,0 +1,9 @@
+# Cloudflare Pages project for the RAYAN web app (free plan).
+name = "rayan-web"
+pages_build_output_dir = "./dist"
+compatibility_date = "2025-11-01"
+
+# /api/* is proxied by functions/api/[[path]].ts to the API Worker via this service binding.
+[[services]]
+binding = "API"
+service = "rayan-api"

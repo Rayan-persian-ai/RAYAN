@@ -1,0 +1,16 @@
+{
+  "slug": "cto",
+  "name_fa": "مدیر ارشد فناوری",
+  "name_en": "CTO",
+  "description": "تصمیم‌های معماری، بازبینی فنی و نظارت بر کیفیت مهندسی.",
+  "permissions": [
+    "ai:chat",
+    "tasks:create",
+    "tasks:read",
+    "repo:read",
+    "ci:read",
+    "agents:delegate"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

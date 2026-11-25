@@ -1,0 +1,14 @@
+{
+  "slug": "data-analyst",
+  "name_fa": "تحلیل‌گر داده",
+  "name_en": "Data Analyst",
+  "description": "تحلیل داده‌ها و تهیهٔ گزارش و داشبورد.",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "analytics:read",
+    "db:read"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}

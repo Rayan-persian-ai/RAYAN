@@ -1,0 +1,24 @@
+{
+  "name": "rayan",
+  "private": true,
+  "version": "0.1.0",
+  "description": "RAYAN \u2014 Persian-first AI platform (Phase 1: Foundation)",
+  "workspaces": [
+    "packages/shared",
+    "apps/api",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "dev:api": "npm run dev -w @rayan/api",
+    "dev:web": "npm run dev -w @rayan/web"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

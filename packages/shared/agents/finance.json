@@ -1,0 +1,14 @@
+{
+  "slug": "finance",
+  "name_fa": "مالی",
+  "name_en": "Finance",
+  "description": "گزارش هزینه‌ها و پایش بودجه (با تأکید بر هزینهٔ صفر).",
+  "permissions": [
+    "ai:chat",
+    "tasks:read",
+    "finance:read",
+    "analytics:read"
+  ],
+  "enabled": false,
+  "version": "1.0.0"
+}
