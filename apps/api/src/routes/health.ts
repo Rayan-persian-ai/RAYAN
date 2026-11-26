@@ -22,12 +22,18 @@ healthRoutes.get("/", async (c) => {
   if (dbOk) {
     const enabled = await isFlagEnabled(c.env.DB, "ai_enabled", true);
     const usage = await getUsage(c.env.DB, AI_SERVICE, now, envAiLimit(c.env));
-    const available = c.var.deps.ai.isAvailable(c.env);
+    const deps = c.var.deps;
+    const available = deps.ai.isAvailable(c.env);
+    // With the multi-provider chain, a capped Workers AI is not an outage: the chain falls through to free providers.
+    const capped = !deps.ai.selfMetered && usage.count >= usage.limit;
+    const chain = (deps.ai as { providerIds?: (e: typeof c.env) => string[] }).providerIds?.(c.env);
     ai = {
-      status: !available ? "unconfigured" : !enabled ? "disabled" : usage.count >= usage.limit ? "capped" : "ok",
-      provider: c.var.deps.ai.name,
+      status: !available ? "unconfigured" : !enabled ? "disabled" : capped ? "capped" : "ok",
+      provider: deps.ai.name,
+      ...(chain ? { chain } : {}),
       used_today: usage.count,
       daily_limit: usage.limit,
+      workers_ai_capped: usage.count >= usage.limit,
     };
     const hb = await c.env.DB.prepare("SELECT last_run_at, last_status FROM scheduled_jobs WHERE name = 'heartbeat'").first<{
       last_run_at: number | null;

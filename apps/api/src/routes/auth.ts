@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { loginSchema, signupSchema } from "@rayan/shared";
 import { intVar, type AppEnv } from "../env";
 import { audit } from "../lib/audit";
-import { DUMMY_HASH, hashPassword, newId, sha256Hex, verifyPassword } from "../lib/crypto";
+import { dummyHash, hashPassword, needsRehash, newId, sha256Hex, verifyPassword } from "../lib/crypto";
 import { ApiError, errorBody } from "../lib/errors";
 import { isFlagEnabled } from "../lib/flags";
 import { hitRateLimit } from "../lib/ratelimit";
@@ -65,7 +65,8 @@ authRoutes.post("/login", authIpLimit, async (c) => {
     .bind(input.email)
     .first<{ id: string; email: string; display_name: string | null; password_hash: string; status: string }>();
 
-  const ok = await verifyPassword(input.password, user?.password_hash ?? DUMMY_HASH);
+  const iterations = intVar(c.env.PBKDF2_ITERATIONS, 100_000);
+  const ok = await verifyPassword(input.password, user?.password_hash ?? dummyHash(iterations));
   if (!user || !ok || user.status !== "active") {
     await audit(c, {
       actor: user?.id ?? null,
@@ -78,6 +79,15 @@ authRoutes.post("/login", authIpLimit, async (c) => {
   }
 
   await c.env.DB.prepare("UPDATE users SET last_login_at = ?1 WHERE id = ?2").bind(now, user.id).run();
+  // Rehash-on-login: upgrade hashes stored with fewer iterations than currently configured.
+  if (needsRehash(user.password_hash, iterations)) {
+    try {
+      const upgraded = await hashPassword(input.password, iterations);
+      await c.env.DB.prepare("UPDATE users SET password_hash = ?1 WHERE id = ?2").bind(upgraded, user.id).run();
+    } catch {
+      // Non-fatal: the old hash still verifies; retry on the next login.
+    }
+  }
   await createSession(c, user.id);
   await audit(c, { actor: user.id, action: "auth.login.success", targetType: "user", targetId: user.id });
   await bootstrapOwner(c, user);

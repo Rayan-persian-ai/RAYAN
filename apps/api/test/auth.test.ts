@@ -141,3 +141,23 @@ describe("super admin bootstrap", () => {
     expect((await c2.json("GET", "/api/me")).body.roles).toEqual(["member"]);
   });
 });
+
+describe("PBKDF2 iteration upgrades", () => {
+  it("rehashes on login when the stored count is below the configured count", async () => {
+    const low = client({ env: { PBKDF2_ITERATIONS: "20000" } });
+    const email = uniqueEmail("rehash");
+    expect((await low.json("POST", "/api/auth/signup", { email, password: PASSWORD })).status).toBe(201);
+    const before = await env.DB.prepare("SELECT password_hash FROM users WHERE email = ?1").bind(email).first<{ password_hash: string }>();
+    expect(before!.password_hash).toMatch(/^pbkdf2_sha256\$20000\$/);
+
+    const high = client({ env: { PBKDF2_ITERATIONS: "50000" } });
+    expect((await high.json("POST", "/api/auth/login", { email, password: PASSWORD })).status).toBe(200);
+    const after = await env.DB.prepare("SELECT password_hash FROM users WHERE email = ?1").bind(email).first<{ password_hash: string }>();
+    expect(after!.password_hash).toMatch(/^pbkdf2_sha256\$50000\$/);
+
+    // A lower configured count never downgrades, and the upgraded hash still logs in.
+    expect((await low.json("POST", "/api/auth/login", { email, password: PASSWORD })).status).toBe(200);
+    const still = await env.DB.prepare("SELECT password_hash FROM users WHERE email = ?1").bind(email).first<{ password_hash: string }>();
+    expect(still!.password_hash).toMatch(/^pbkdf2_sha256\$50000\$/);
+  });
+});

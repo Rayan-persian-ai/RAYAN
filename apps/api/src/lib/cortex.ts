@@ -38,6 +38,7 @@ import { ERRORS_FA, type Role } from "@rayan/shared";
 import type { AppDeps } from "../deps";
 import type { Env } from "../env";
 import { DEFAULT_AI_MODEL, PERSIAN_SYSTEM_PROMPT } from "./ai";
+import { AiCapError } from "./ai-chain";
 import { AI_SERVICE, envAiLimit, getUsage, reserveUsage } from "./cost";
 import { ApiError } from "./errors";
 import { isFlagEnabled } from "./flags";
@@ -402,6 +403,7 @@ const QUEUE_STATUS: Record<CortexReport["status"], string> = {
 /** Throws ApiError when the kill switch is off, no provider is configured, or today's AI cap is used up. */
 export async function assertAiAvailable(env: Env, deps: AppDeps) {
   if (!(await isFlagEnabled(env.DB, "ai_enabled", true)) || !deps.ai.isAvailable(env)) throw new ApiError(503, "ai_disabled");
+  if (deps.ai.selfMetered) return; // the chain falls through to other free providers when Workers AI is capped
   const u = await getUsage(env.DB, AI_SERVICE, deps.now(), envAiLimit(env));
   if (u.count >= u.limit) throw new ApiError(429, "daily_cap_reached", { used: u.count, limit: u.limit, day: u.day });
 }
@@ -409,7 +411,9 @@ export async function assertAiAvailable(env: Env, deps: AppDeps) {
 /** Cost-capped LLM function backed by the injected AiProvider. */
 export function cappedLlm(env: Env, deps: AppDeps, onCap?: () => void): LLMFunction {
   return async (req) => {
-    const r = await reserveUsage(env.DB, AI_SERVICE, envAiLimit(env), deps.now());
+    const r = deps.ai.selfMetered
+      ? { allowed: true, count: 0, limit: 0 }
+      : await reserveUsage(env.DB, AI_SERVICE, envAiLimit(env), deps.now());
     if (!r.allowed) {
       onCap?.();
       throw new CortexError("daily_cap_reached", ERRORS_FA.daily_cap_reached, { retryable: false, details: { used: r.count, limit: r.limit } });
@@ -422,6 +426,10 @@ export function cappedLlm(env: Env, deps: AppDeps, onCap?: () => void): LLMFunct
         { role: "user", content: prompt },
       ]);
     } catch (e) {
+      if (e instanceof AiCapError) {
+        onCap?.();
+        throw new CortexError("daily_cap_reached", ERRORS_FA.daily_cap_reached, { retryable: false });
+      }
       console.error("cortex llm error", e);
       throw new CortexError("ai_error", ERRORS_FA.ai_error, { retryable: false });
     }

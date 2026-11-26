@@ -1,5 +1,5 @@
 # Cloudflare Pages project for the RAYAN web app (free plan).
-name = "rayan-web"
+name = "rayan"
 pages_build_output_dir = "./dist"
 compatibility_date = "2025-11-01"
 

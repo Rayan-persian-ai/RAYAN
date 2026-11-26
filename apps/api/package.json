@@ -18,6 +18,7 @@
     "dev:remote-ai": "wrangler dev --test-scheduled"
   },
   "dependencies": {
+    "@rayan/ai-router": "*",
     "@rayan/autopilot": "*",
     "@rayan/cortex": "*",
     "@rayan/shared": "*",
