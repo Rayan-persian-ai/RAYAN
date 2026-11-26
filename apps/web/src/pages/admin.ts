@@ -3,7 +3,10 @@ import { alertBox, date, errorMessage, h, num, statusFa, withBusy } from "../ui"
 
 type Tab = { id: string; label: string; visible: boolean; render: (el: HTMLElement) => Promise<void> };
 
-export function renderAdmin(main: HTMLElement, me: Me) {
+export async function renderAdmin(main: HTMLElement, me: Me, params = new URLSearchParams()) {
+  // Gmail sending is owner-only: the tab exists only when the API confirms this account is the owner.
+  let gmail: GmailStatus | null = null;
+  if (can(me, "flags:manage")) gmail = await api<GmailStatus>("GET", "/admin/gmail/status").catch(() => null);
   const all: Tab[] = [
     { id: "users", label: "کاربران", visible: can(me, "users:read"), render: (el: HTMLElement) => usersTab(el, me) },
     { id: "agents", label: "عامل‌ها", visible: can(me, "agents:read"), render: (el: HTMLElement) => agentsTab(el, me) },
@@ -12,6 +15,7 @@ export function renderAdmin(main: HTMLElement, me: Me) {
     { id: "usage", label: "مصرف و زمان‌بند", visible: can(me, "usage:read"), render: (el: HTMLElement) => usageTab(el, me) },
     { id: "support", label: "پشتیبانی", visible: can(me, "users:read"), render: (el: HTMLElement) => supportTab(el, me) },
     { id: "announce", label: "اعلان‌ها", visible: can(me, "flags:manage"), render: announceTab },
+    { id: "gmail", label: "ایمیل (Gmail)", visible: !!gmail, render: (el: HTMLElement) => gmailTab(el, params) },
   ];
   const tabs = all.filter((t) => t.visible);
 
@@ -35,7 +39,8 @@ export function renderAdmin(main: HTMLElement, me: Me) {
     bar.append(b);
   }
   main.append(h("section", {}, h("h1", {}, "پنل مدیریت"), h("p", { class: "muted" }, `نقش‌های شما: ${me.roles.join("، ")}`), bar, panel));
-  if (tabs[0]) void open(tabs[0]);
+  const want = params.get("gmail") ? tabs.find((t) => t.id === "gmail") : undefined;
+  if (want ?? tabs[0]) void open((want ?? tabs[0])!);
 }
 
 function table(headers: string[], rows: Node[][]) {
@@ -309,4 +314,49 @@ async function announceTab(el: HTMLElement) {
     });
   el.append(h("h2", {}, "اعلان‌های سایت"), ta, h("div", { class: "row" }, add), out, list);
   await load();
+}
+
+interface GmailStatus {
+  provider: string;
+  configured: boolean;
+  gmail_connected: boolean;
+  sender: string | null;
+  google_client: boolean;
+}
+const GMAIL_RESULT: Record<string, [string, "ok" | "error"]> = {
+  connected: ["Gmail وصل شد؛ ایمیل‌های رایان از این حساب ارسال می‌شود.", "ok"],
+  wrong_account: ["فقط حساب گوگلِ مالک (OWNER_EMAIL) می‌تواند Gmail را وصل کند.", "error"],
+  no_refresh_token: ["گوگل توکن دسترسی آفلاین نداد؛ دوباره «اتصال» را بزنید و همهٔ دسترسی‌ها را تأیید کنید.", "error"],
+};
+
+async function gmailTab(el: HTMLElement, params: URLSearchParams) {
+  const out = h("div");
+  const r = params.get("gmail");
+  if (r && GMAIL_RESULT[r]) out.append(alertBox(GMAIL_RESULT[r]![0], GMAIL_RESULT[r]![1]));
+  const s = await api<GmailStatus>("GET", "/admin/gmail/status");
+  const rows: [string, string][] = [
+    ["سرویس ارسال", s.provider === "gmail" ? "Gmail API" : s.provider],
+    ["وضعیت", s.configured ? "✅ آمادهٔ ارسال" : "⛔ هنوز وصل نشده"],
+    ["فرستنده", s.sender ?? "—"],
+    ["کلاینت OAuth گوگل", s.google_client ? "پیکربندی شده" : "پیکربندی نشده"],
+  ];
+  const actions = h("div", { class: "row" });
+  if (s.google_client)
+    actions.append(h("a", { class: "btn btn-primary", href: "/api/admin/gmail/connect" }, s.gmail_connected ? "اتصال دوباره به Gmail" : "اتصال Gmail (ارسال به‌نام مالک)"));
+  if (s.gmail_connected) {
+    const dis = h("button", { type: "button", class: "btn btn-danger" }, "قطع اتصال");
+    dis.onclick = () =>
+      withBusy(dis, out, async () => {
+        await api("POST", "/admin/gmail/disconnect", {});
+        out.replaceChildren(alertBox("اتصال Gmail حذف شد.", "ok"));
+      });
+    actions.append(dis);
+  }
+  el.append(
+    h("h2", {}, "ارسال ایمیل با Gmail"),
+    h("p", { class: "muted" }, "کدهای تأیید و ایمیل‌های ایجنت‌ها از حساب Gmail مالک فرستاده می‌شوند (سقف روزانهٔ ۴۵۰ ایمیل). توکن به‌صورت رمزنگاری‌شده در D1 نگه‌داری می‌شود و هرگز نمایش داده نمی‌شود."),
+    h("div", { class: "table-wrap" }, h("table", {}, h("tbody", {}, ...rows.map(([k, v]) => h("tr", {}, h("th", {}, k), h("td", {}, v)))))),
+    actions,
+    out,
+  );
 }

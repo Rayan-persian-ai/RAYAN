@@ -43,5 +43,7 @@ export interface AppDeps {
   taskHandlers: Record<string, TaskHandler>;
   /** Outbound fetch for web search (Wikipedia); tests inject a stub so nothing leaves the sandbox. */
   fetch?: typeof fetch;
+  /** Outgoing email provider override (tests); production selects one from env (Gmail by default). */
+  email?: import("./lib/email").EmailProvider;
   now: () => number;
 }

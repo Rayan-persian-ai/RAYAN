@@ -10,6 +10,10 @@ import { authRoutes } from "./routes/auth";
 import { autopilotRoutes } from "./routes/autopilot";
 import { chatRoutes } from "./routes/chat";
 import { conversationRoutes, messageRoutes } from "./routes/conversations";
+import { emailAuthRoutes } from "./routes/email-auth";
+import { gmailAdminRoutes, googleRoutes } from "./routes/google";
+import { withGoogleCreds } from "./lib/google-creds";
+import { provisionRoutes } from "./routes/provision";
 import { imageRoutes } from "./routes/images";
 import { shareRoutes } from "./routes/share";
 import { adminSupportRoutes, announcementRoutes, supportRoutes } from "./routes/support";
@@ -30,11 +34,19 @@ export function createApp(deps: AppDeps) {
   app.use("/api/*", corsMiddleware);
   app.use("/api/*", noStore);
   app.use("/api/*", originGuard);
+  app.use("/api/*", async (c, next) => {
+    c.env = await withGoogleCreds(c.env);
+    await next();
+  });
   app.route("/api/health", healthRoutes); // monitoring: not rate limited, no session needed
   app.use("/api/*", apiIpLimit);
   app.use("/api/*", sessionLoader);
 
   app.route("/api/auth", authRoutes);
+  app.route("/api/auth", emailAuthRoutes);
+  app.route("/api/auth/google", googleRoutes);
+  app.route("/api/admin/gmail", gmailAdminRoutes);
+  app.route("/api/admin/provision", provisionRoutes);
   app.route("/api/me", meRoutes);
   app.route("/api/chat", chatRoutes);
   app.route("/api/agents", agentRoutes);

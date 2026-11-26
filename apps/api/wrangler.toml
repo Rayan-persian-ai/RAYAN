@@ -32,6 +32,11 @@ RATE_LIMIT_LOGIN_PER_EMAIL_15MIN = "10"
 RATE_LIMIT_CHAT_PER_MIN = "10"
 PBKDF2_ITERATIONS = "100000"
 SESSION_TTL_HOURS = "168"
+# Outgoing email: Gmail API as the owner's connected account (connect from Admin → «ایمیل (Gmail)»).
+# Secrets (never here): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET (or D1 copies via /api/admin/provision/google),
+# DATA_ENC_KEY, optional GMAIL_REFRESH_TOKEN / BREVO_API_KEY / RESEND_API_KEY.
+EMAIL_PROVIDER = "gmail"
+EMAIL_DAILY_LIMIT = "450"
 
 [observability]
 enabled = true

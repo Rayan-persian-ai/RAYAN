@@ -18,6 +18,23 @@ export interface Env {
   RATE_LIMIT_CHAT_PER_MIN?: string;
   PBKDF2_ITERATIONS?: string;
   SESSION_TTL_HOURS?: string;
+  /** Google OAuth client (Worker secrets) — used for "Sign in with Google" and the owner's Gmail connection. */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  /** Optional: Gmail refresh token as a secret (else the one stored encrypted in D1 by /api/admin/gmail/connect). */
+  GMAIL_REFRESH_TOKEN?: string;
+  /** From-address for outgoing mail (var). Gmail sends as the connected account. */
+  SENDER_EMAIL?: string;
+  /** gmail (default) | brevo | resend | log. */
+  EMAIL_PROVIDER?: string;
+  BREVO_API_KEY?: string;
+  RESEND_API_KEY?: string;
+  /** Daily cap for outgoing email (Gmail allows ~500/day for consumer accounts). */
+  EMAIL_DAILY_LIMIT?: string;
+  /** Secret used to encrypt app_secrets rows and to key email-code HMACs (falls back to GOOGLE_CLIENT_SECRET). */
+  DATA_ENC_KEY?: string;
+  /** One-time token that enables /api/admin/provision/google (delete the secret after use). */
+  PROVISION_TOKEN?: string;
 }
 
 export interface AuthUser {

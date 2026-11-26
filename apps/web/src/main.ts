@@ -73,7 +73,9 @@ async function announcements() {
 
 async function render() {
   applyTheme();
-  const full = (location.hash || "#/").replace(/^#/, "");
+  const raw = (location.hash || "#/").replace(/^#/, "");
+  const [full, query = ""] = raw.split("?") as [string, string?];
+  const params = new URLSearchParams(query);
   const route = full.startsWith("/chat/") ? "/chat" : full.startsWith("/share/") ? "/share" : full;
   let me: Me | null = null;
   try {
@@ -94,9 +96,9 @@ async function render() {
 
   switch (route) {
     case "/login":
-      return renderAuth(main, "login");
+      return renderAuth(main, "login", params);
     case "/signup":
-      return renderAuth(main, "signup");
+      return renderAuth(main, "signup", params);
     case "/chat":
       return renderChat(main, me!);
     case "/settings":
@@ -116,7 +118,7 @@ async function render() {
         main.append(alertBox("شما اجازهٔ دسترسی به بخش مدیریت را ندارید."));
         return;
       }
-      return renderAdmin(main, me!);
+      return renderAdmin(main, me!, params);
     default:
       return renderLanding(main, me);
   }
