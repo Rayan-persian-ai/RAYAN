@@ -4,13 +4,12 @@ main = "src/index.ts"
 compatibility_date = "2025-11-01"
 workers_dev = true
 
-# Created with: npx wrangler d1 create rayan-db
-# The deploy workflow resolves/creates the real id by name and injects it at deploy time,
-# so the placeholder below is safe to commit. For manual deploys paste your database_id here locally.
+# Created with: npx wrangler d1 create rayan-db (Phase 3, region WEUR). Database ids are not secret.
+# The deploy workflow still resolves the id by name, so a fork with its own account keeps working.
 [[d1_databases]]
 binding = "DB"
 database_name = "rayan-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "8096d3f9-bee1-4668-b26d-96bc24e0281d"
 migrations_dir = "migrations"
 
 # Workers AI (free: 10,000 neurons/day). Guarded by the Cost Controller (AI_DAILY_LIMIT).
@@ -24,8 +23,8 @@ crons = ["*/15 * * * *"]
 # Non-secret configuration. Secrets (OWNER_EMAIL) are set with `wrangler secret put` — never here.
 [vars]
 ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://rayan-web.pages.dev"
-AI_MODEL = "@cf/meta/llama-3.1-8b-instruct"
+ALLOWED_ORIGINS = "https://rayan-c1o.pages.dev"
+AI_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct"
 AI_DAILY_LIMIT = "60"
 RATE_LIMIT_API_PER_MIN = "120"
 RATE_LIMIT_AUTH_PER_MIN = "10"

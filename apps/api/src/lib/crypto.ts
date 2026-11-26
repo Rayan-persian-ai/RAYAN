@@ -55,8 +55,30 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return constantTimeEqual(actual, expected);
 }
 
-/** A fixed, valid hash used to keep login timing uniform when the email does not exist. */
-export const DUMMY_HASH = "pbkdf2_sha256$100000$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+/** Iteration count recorded in a stored hash, or null when the hash is malformed. */
+export function storedIterations(stored: string): number | null {
+  const parts = stored.split("$");
+  if (parts.length !== 4 || parts[0] !== "pbkdf2_sha256") return null;
+  const it = Number(parts[1]);
+  return Number.isInteger(it) ? it : null;
+}
+
+/** True when a stored hash uses fewer iterations than the configured count and should be upgraded on login. */
+export function needsRehash(stored: string, configuredIterations: number): boolean {
+  const it = storedIterations(stored);
+  return it !== null && it < clampIterations(configuredIterations);
+}
+
+/**
+ * A fixed, valid hash used to keep login timing uniform when the email does not exist.
+ * It uses the configured iteration count so an unknown email costs the same CPU as a real one.
+ */
+export function dummyHash(iterations: number): string {
+  return `pbkdf2_sha256$${clampIterations(iterations)}$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`;
+}
+
+/** @deprecated use dummyHash(configured) — kept for callers that do not know the configured count. */
+export const DUMMY_HASH = dummyHash(MAX_PBKDF2_ITERATIONS);
 
 export function randomToken(bytes = 32): string {
   return b64url(crypto.getRandomValues(new Uint8Array(bytes)));

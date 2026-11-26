@@ -29,7 +29,7 @@
                                                                        └──────┬───────────────┬────────────┘
                                                                               │               │
                                                                         D1 (SQLite)     Workers AI (env.AI)
-                                                                   users, sessions, …   @cf/meta/llama-3.1-8b-instruct
+                                                                   users, sessions, …   @cf/meta/llama-4-scout-17b-16e-instruct
 ```
 
 - **چرا پروکسی Pages Function؟** کوکی نشست با پیشوند `__Host-` و `SameSite=Lax` فقط وقتی قابل اعتماد است که وب و API هم‌مبدأ باشند. تابع Pages درخواست‌های `/api/*` را از طریق Service Binding (رایگان و بدون عبور از اینترنت) به Worker می‌فرستد.
@@ -124,10 +124,10 @@ npx wrangler d1 migrations list rayan-db --remote
 | `OWNER_EMAIL` | Wrangler **secret** | `npx wrangler secret put OWNER_EMAIL` یا رازِ مخزن `OWNER_EMAIL` | ایمیل مالک که پس از **ورود موفق و تأییدشده** به `super_admin` ارتقا می‌یابد. مقدار مورد نظر: `jalilitaymaz@gmail.com` — عمداً در کد/پیکربندی قرار ندارد. |
 | `CLOUDFLARE_API_TOKEN` | GitHub secret | Settings → Secrets → Actions | توکن با دسترسی Workers Scripts, D1, Pages (Edit) و Workers AI (Read) |
 | `CLOUDFLARE_ACCOUNT_ID` | GitHub secret | همان‌جا | شناسهٔ حساب Cloudflare |
-| `ALLOWED_ORIGINS` | var (wrangler.toml) / GitHub **variable** اختیاری | `vars.ALLOWED_ORIGINS` | فهرست دقیق مبدأهای مجاز با کاما؛ باید آدرس واقعی Pages شما باشد (مثلاً `https://rayan-web.pages.dev`). مبدأهای پوستهٔ اپ‌ها (`https://localhost` اندروید و `http://tauri.localhost` ویندوز) همیشه علاوه بر این فهرست مجازند. |
+| `ALLOWED_ORIGINS` | var (wrangler.toml) / GitHub **variable** اختیاری | `vars.ALLOWED_ORIGINS` | فهرست دقیق مبدأهای مجاز با کاما؛ باید آدرس واقعی Pages شما باشد (مثلاً `https://rayan-c1o.pages.dev`). مبدأهای پوستهٔ اپ‌ها (`https://localhost` اندروید و `http://tauri.localhost` ویندوز) همیشه علاوه بر این فهرست مجازند. |
 | `VITE_API_BASE_URL` | متغیر زمان ساخت وب (اختیاری) | محیط ساخت | آدرس مطلق API برای ساخت‌هایی که خارج از Pages سرو می‌شوند؛ خالی = هم‌مبدأ (`/api`). پوسته‌ها می‌توانند `apiBaseUrl` را در `/rayan-config.json` بنویسند که اولویت دارد. |
-| `PAGES_PROJECT` | GitHub variable اختیاری | `vars.PAGES_PROJECT` | نام پروژهٔ Pages (پیش‌فرض `rayan-web`) |
-| `AI_MODEL` | var | wrangler.toml | پیش‌فرض `@cf/meta/llama-3.1-8b-instruct` |
+| `PAGES_PROJECT` | GitHub variable اختیاری | `vars.PAGES_PROJECT` | نام پروژهٔ Pages (پیش‌فرض `rayan`) |
+| `AI_MODEL` | var | wrangler.toml | پیش‌فرض `@cf/meta/llama-4-scout-17b-16e-instruct` (مدل قبلی `llama-3.1-8b-instruct` در ۲۰۲۶-۰۵-۳۰ از رده خارج شد) |
 | `AI_DAILY_LIMIT` | var | wrangler.toml | سقف پیش‌فرض روزانهٔ فراخوانی AI (۶۰) — در پنل مدیریت قابل تغییر |
 | `RATE_LIMIT_*`, `PBKDF2_ITERATIONS`, `SESSION_TTL_HOURS` | var | wrangler.toml | تنظیمات امنیتی |
 
@@ -156,7 +156,7 @@ npx wrangler d1 migrations list rayan-db --remote
 - با رسیدن به سقف، پیش از فراخوانی مدل پاسخ ۴۲۹ داده می‌شود:
   «سقف استفادهٔ روزانه از هوش مصنوعی به پایان رسیده است. لطفاً فردا دوباره تلاش کنید.»
 - کلید اضطراری `ai_enabled` در `feature_flags`؛ سقف پیش‌فرض قابل تغییر توسط super_admin در پنل.
-- **حساب سرانگشتی:** نرخ `llama-3.1-8b-instruct` ≈ ۲۵٬۶۰۸ نورون برای هر میلیون توکن ورودی و ۷۵٬۱۴۷ برای خروجی است. با سقف ۶٬۰۰۰ کاراکتر ورودی در هر درخواست و `max_tokens=512`، بدترین حالت حدود ۱۴۰ نورون در هر فراخوانی است؛ ۶۰ فراخوانی ≈ ۸٬۴۰۰ نورون < سهمیهٔ رایگان ۱۰٬۰۰۰ نورون در روز. مدل `@cf/meta/llama-3.1-8b-instruct-fp8-fast` حدود ۳ تا ۴ برابر ارزان‌تر است.
+- **حساب سرانگشتی (فاز ۳):** نرخ `llama-4-scout-17b-16e-instruct` = ۰٫۲۷ دلار برای هر میلیون توکن ورودی و ۰٫۸۵ دلار برای خروجی (≈ ۲۴٬۵۴۵ و ≈ ۷۷٬۲۷۳ نورون). با سقف ۶٬۰۰۰ کاراکتر ورودی و `max_tokens=512`، بدترین حالت حدود ۱۱۵ نورون در هر فراخوانی است؛ ۶۰ فراخوانی ≈ ۶٬۹۰۰ نورون < سهمیهٔ رایگان ۱۰٬۰۰۰ نورون در روز. یک پاسخ کوتاه فارسی در آزمون زنده ≈ ۳٫۶ نورون مصرف کرد.
 
 ---
 
@@ -277,3 +277,51 @@ npx wrangler d1 migrations list rayan-db --remote
 - آزمون‌ها AI را mock می‌کنند؛ فراخوانی واقعی Workers AI فقط پس از استقرار یا با `dev:remote-ai` قابل بررسی است.
 
 </div>
+
+---
+
+## ۱۳. استقرار فاز ۳ (زنده روی پلن رایگان Cloudflare)
+
+| بخش | نشانی / شناسه |
+|---|---|
+| وب (Pages، پروژهٔ `rayan`) | https://rayan-c1o.pages.dev |
+| API (Worker `rayan-api`) | https://rayan-api.jalilitaymaz.workers.dev |
+| پایگاه دادهٔ D1 `rayan-db` | `8096d3f9-bee1-4668-b26d-96bc24e0281d` (مهاجرت‌های 0001 تا 0005 اعمال شده‌اند؛ شناسهٔ پایگاه داده راز نیست) |
+| Cron | `*/15 * * * *` (task_processor، maintenance، heartbeat، autopilot) |
+
+وب از راه **service binding** (`API → rayan-api`) در `functions/api/[[path]].ts` به API وصل است؛ کوکی نشست (`__Host-rayan_sid`) هم‌مبدأ می‌ماند. `ALLOWED_ORIGINS` روی Worker برابر `https://rayan-c1o.pages.dev` است.
+
+### زنجیرهٔ هوش مصنوعی (`packages/ai-router`)
+
+۱. **Workers AI** (`AI_MODEL`، پیش‌فرض `@cf/meta/llama-4-scout-17b-16e-instruct`) با سقف روزانهٔ `AI_DAILY_LIMIT` (۶۰) در D1.
+۲. **Pollinations** (بی‌کلید؛ سهمیهٔ رایگان آن ۱۰۰ پاسخ در روز به ازای هر IP است و IPهای خروجی Workers مشترک‌اند، پس فقط پشتیبان است).
+۳. هر ارائه‌دهندهٔ کلیددار که رازش تنظیم شده باشد (`HF_TOKEN`، `GROQ_API_KEY`، `GEMINI_API_KEY`، `OPENROUTER_API_KEY` [فقط مدل‌های `:free`]، `CEREBRAS_API_KEY`، `MISTRAL_API_KEY`، `GITHUB_MODELS_TOKEN`)، هر کدام با سقف روزانه در D1.
+
+کلید اضطراری `ai_enabled` همهٔ زنجیره را خاموش می‌کند. هیچ ارائه‌دهندهٔ پولی فعال نیست.
+
+### یادداشت PBKDF2
+
+- هر هش تعداد تکرار خودش را نگه می‌دارد: `pbkdf2_sha256$<iterations>$<salt>$<hash>`. مقدار پیکربندی‌شده از `PBKDF2_ITERATIONS` خوانده می‌شود (بازهٔ مجاز ۱۰٬۰۰۰ تا ۱۰۰٬۰۰۰؛ workerd بیش از ۱۰۰ هزار را رد می‌کند).
+- **تصمیم فاز ۳: ۱۰۰٬۰۰۰ تکرار.** در آزمون زنده ثبت‌نام و ۷ ورود موفق بود و هیچ خطای 1102 / «CPU exceeded» رخ نداد (۰ خطا در ۳۱ درخواست؛ میانهٔ CPU ≈ ۱۰ میلی‌ثانیه). چون این عدد نزدیک سقف ۱۰ms پلن رایگان است، اگر خطای 1102 دیدید `PBKDF2_ITERATIONS` را در `wrangler.toml` پایین بیاورید (مثلاً `60000`) و دوباره deploy کنید.
+- **Rehash-on-login:** پس از ورود موفق، اگر تعداد تکرار هش ذخیره‌شده کمتر از مقدار پیکربندی‌شده باشد، رمز با مقدار جدید دوباره هش می‌شود. پایین آوردن مقدار هرگز هش‌های موجود را ضعیف نمی‌کند (هش‌های ۱۰۰ هزارتایی همان‌طور می‌مانند).
+- **DUMMY_HASH** برای ایمیل‌های ناموجود با همان تعداد تکرار پیکربندی‌شده ساخته می‌شود (`dummyHash(iterations)`) تا زمان پاسخ، وجود حساب را لو ندهد.
+
+### دستورهای استقرار
+
+```bash
+export CLOUDFLARE_ACCOUNT_ID=<account id> CI=1 WRANGLER_SEND_METRICS=false   # بدون CI=1 wrangler منتظر ورودی می‌ماند
+npm ci && npm test && npm run typecheck && npm run build
+
+# API
+cd apps/api
+npx wrangler d1 migrations apply rayan-db --remote
+npx wrangler deploy
+printf '%s' 'owner@example.com' | npx wrangler secret put OWNER_EMAIL   # فقط از stdin
+
+# وب
+cd ../web
+npx wrangler pages project create rayan --production-branch main      # فقط بار اول
+npm run build && npx wrangler pages deploy dist --project-name rayan --branch main
+```
+
+متغیر GitHub Actions `RAYAN_API_BASE_URL` (اختیاری) = `https://rayan-api.jalilitaymaz.workers.dev`.

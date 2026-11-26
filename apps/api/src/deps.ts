@@ -8,6 +8,14 @@ export interface ChatTurn {
 /** Abstraction over the LLM so tests (and future providers) can swap it out. */
 export interface AiProvider {
   readonly name: string;
+  /**
+   * True when the provider meters itself against the D1 Cost Controller per underlying provider
+   * (the multi-provider chain). Callers then skip the single "workers_ai" reservation and map
+   * AiCapError to 429 daily_cap_reached. Plain providers (and test mocks) leave this unset.
+   */
+  readonly selfMetered?: boolean;
+  /** Optional: same as chat() but also reports which provider/model served the answer. */
+  chatDetailed?(env: Env, messages: ChatTurn[]): Promise<{ text: string; provider: string; model: string }>;
   isAvailable(env: Env): boolean;
   chat(env: Env, messages: ChatTurn[]): Promise<string>;
 }

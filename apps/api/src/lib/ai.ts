@@ -1,7 +1,7 @@
 import type { AiProvider, ChatTurn } from "../deps";
 import type { Env } from "../env";
 
-export const DEFAULT_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct";
+export const DEFAULT_AI_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
 
 export const PERSIAN_SYSTEM_PROMPT = [
   "تو «رایان» هستی، دستیار هوش مصنوعی فارسی‌زبان.",

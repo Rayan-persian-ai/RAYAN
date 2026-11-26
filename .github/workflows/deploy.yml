@@ -44,7 +44,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       D1_NAME: rayan-db
-      PAGES_PROJECT: ${{ vars.PAGES_PROJECT || 'rayan-web' }}
+      PAGES_PROJECT: ${{ vars.PAGES_PROJECT || 'rayan' }}
     steps:
       - uses: actions/checkout@v4
 

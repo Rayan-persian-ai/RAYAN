@@ -2,9 +2,10 @@
   "name": "rayan",
   "private": true,
   "version": "0.1.0",
-  "description": "RAYAN — Persian-first AI platform (Phase 2: Cortex + Autopilot wired into API/web)",
+  "description": "RAYAN — Persian-first AI platform (Phase 3: Cloudflare free-plan deploy + multi-provider AI router)",
   "workspaces": [
     "packages/shared",
+    "packages/ai-router",
     "packages/cortex",
     "packages/autopilot",
     "apps/api",
