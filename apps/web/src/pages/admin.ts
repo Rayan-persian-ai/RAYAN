@@ -10,6 +10,8 @@ export function renderAdmin(main: HTMLElement, me: Me) {
     { id: "tasks", label: "وظایف", visible: can(me, "tasks:read:all"), render: (el: HTMLElement) => tasksTab(el, me) },
     { id: "audit", label: "گزارش ممیزی", visible: can(me, "audit:read"), render: auditTab },
     { id: "usage", label: "مصرف و زمان‌بند", visible: can(me, "usage:read"), render: (el: HTMLElement) => usageTab(el, me) },
+    { id: "support", label: "پشتیبانی", visible: can(me, "users:read"), render: (el: HTMLElement) => supportTab(el, me) },
+    { id: "announce", label: "اعلان‌ها", visible: can(me, "flags:manage"), render: announceTab },
   ];
   const tabs = all.filter((t) => t.visible);
 
@@ -242,4 +244,69 @@ async function usageTab(el: HTMLElement, me: Me) {
       jobs.jobs.map((j) => [ltr(j.name), txt(date(j.last_run_at)), h("span", { class: `badge badge-${j.last_status ?? "unknown"}` }, statusFa(j.last_status ?? "never_run")), txt(num(j.last_duration_ms)), txt(num(j.run_count)), ltr(j.last_error)]),
     ),
   );
+}
+
+async function supportTab(el: HTMLElement, me: Me) {
+  const r = await api<{ tickets: { id: string; body: string; reply: string | null; status: string; created_at: number; email: string }[] }>("GET", "/admin/support");
+  const canReply = can(me, "users:manage");
+  const list = h("div", { class: "stack" });
+  if (!r.tickets.length) list.append(h("p", { class: "muted" }, "پیامی در صندوق پشتیبانی نیست."));
+  for (const t of r.tickets) {
+    const out = h("div");
+    const card = h(
+      "div",
+      { class: "card stack" },
+      h("div", { class: "row" }, h("bdi", { dir: "ltr" }, t.email), h("span", { class: `badge badge-${t.status === "open" ? "pending" : "ok"}` }, t.status === "open" ? "باز" : t.status === "answered" ? "پاسخ داده شد" : "بسته"), h("small", { class: "muted" }, date(t.created_at))),
+      h("p", { class: "prose", dir: "auto" }, t.body),
+      t.reply ? h("p", { class: "muted", dir: "auto" }, "↩ ", t.reply) : null,
+      out,
+    );
+    if (canReply) {
+      const ta = h("textarea", { rows: 2, maxlength: 2000, placeholder: "پاسخ به کاربر…" });
+      const send = h("button", { type: "button", class: "btn btn-primary btn-small" }, "ارسال پاسخ");
+      const close = h("label", { class: "switch" }, h("input", { type: "checkbox" }), "بستن تیکت");
+      send.onclick = () =>
+        withBusy(send, out, async () => {
+          if (!ta.value.trim()) return;
+          await api("POST", `/admin/support/${t.id}/reply`, { reply: ta.value.trim(), close: (close.firstChild as HTMLInputElement).checked });
+          out.replaceChildren(alertBox("پاسخ ثبت شد؛ کاربر آن را در «پشتیبانی» می‌بیند.", "ok"));
+        });
+      card.append(ta, h("div", { class: "row" }, send, close));
+    }
+    list.append(card);
+  }
+  el.append(h("h2", {}, "صندوق پشتیبانی"), list);
+}
+
+async function announceTab(el: HTMLElement) {
+  const out = h("div");
+  const list = h("div", { class: "stack" });
+  const ta = h("textarea", { rows: 2, maxlength: 500, placeholder: "متن اعلان برای همهٔ کاربران…" });
+  const add = h("button", { type: "button", class: "btn btn-primary" }, "انتشار اعلان");
+  const load = async () => {
+    const r = await api<{ announcements: { id: string; body: string; active: number; created_at: number }[] }>("GET", "/admin/announcements");
+    list.replaceChildren(
+      ...(r.announcements.length
+        ? r.announcements.map((a) => {
+            const tg = h("button", { type: "button", class: "btn btn-small" }, a.active ? "غیرفعال کن" : "فعال کن");
+            tg.onclick = () =>
+              withBusy(tg, out, async () => {
+                await api("PATCH", `/admin/announcements/${a.id}`, { active: !a.active });
+                await load();
+              });
+            return h("div", { class: "row card" }, h("span", { class: `badge badge-${a.active ? "active" : "archived"}` }, a.active ? "فعال" : "غیرفعال"), h("span", { dir: "auto" }, a.body), h("small", { class: "muted" }, date(a.created_at)), tg);
+          })
+        : [h("p", { class: "muted" }, "اعلانی ثبت نشده است.")]),
+    );
+  };
+  add.onclick = () =>
+    withBusy(add, out, async () => {
+      if (ta.value.trim().length < 2) return;
+      await api("POST", "/admin/announcements", { body: ta.value.trim() });
+      ta.value = "";
+      out.replaceChildren(alertBox("اعلان منتشر شد و بالای همهٔ صفحه‌ها نمایش داده می‌شود.", "ok"));
+      await load();
+    });
+  el.append(h("h2", {}, "اعلان‌های سایت"), ta, h("div", { class: "row" }, add), out, list);
+  await load();
 }

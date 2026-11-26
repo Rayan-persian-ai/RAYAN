@@ -18,7 +18,7 @@ import {
   type Provider,
   type RouterSnapshot,
 } from "@rayan/ai-router";
-import type { AiProvider, ChatTurn } from "../deps";
+import type { AiProvider, ChatCallOptions, ChatTurn } from "../deps";
 import type { Env } from "../env";
 import { AI_SERVICE, envAiLimit, reserveUsage } from "./cost";
 
@@ -61,7 +61,8 @@ export interface ChainOptions {
 }
 
 export interface ChainProvider extends AiProvider {
-  chatDetailed(env: Env, messages: ChatTurn[]): Promise<{ text: string; provider: string; model: string }>;
+  chatDetailed(env: Env, messages: ChatTurn[], opts?: ChatCallOptions): Promise<{ text: string; provider: string; model: string }>;
+  chatStream(env: Env, messages: ChatTurn[], opts?: ChatCallOptions): Promise<{ stream: AsyncIterable<string>; provider: string; model: string }>;
   providerIds(env: Env): string[];
 }
 
@@ -71,7 +72,7 @@ export function createChainProvider(opts: ChainOptions = {}): ChainProvider {
   let snapshot: RouterSnapshot | null = null;
   const build = (env: Env) => workersProvidersFromEnv(stringEnv(env), { ai: env.AI as never, fetch: opts.fetch });
 
-  const chatDetailed = async (env: Env, messages: ChatTurn[]) => {
+  const chatDetailed = async (env: Env, messages: ChatTurn[], o: ChatCallOptions = {}) => {
     const providers = build(env).map((p) => metered(p, env, now));
     const router = new AiRouter({
       providers,
@@ -81,7 +82,7 @@ export function createChainProvider(opts: ChainOptions = {}): ChainProvider {
     });
     router.restore(snapshot);
     try {
-      const r = await router.chat(messages, { maxTokens: 512 });
+      const r = await router.chat(messages, { maxTokens: clampTokens(o.maxTokens) });
       return { text: r.text, provider: r.provider, model: r.model };
     } catch (e) {
       if (e instanceof AllProvidersFailedError) {
@@ -92,12 +93,84 @@ export function createChainProvider(opts: ChainOptions = {}): ChainProvider {
     }
   };
 
+  /**
+   * Streams from Workers AI (binding, stream:true) after reserving one unit of the D1 daily cap.
+   * If the binding is missing, the cap is reached or the binding refuses before the first byte,
+   * falls back to the whole non-streaming chain (Pollinations / keyed providers) and yields its
+   * answer as a single chunk — so the caller always gets the same streaming interface.
+   */
+  const chatStream = async (env: Env, messages: ChatTurn[], o: ChatCallOptions = {}) => {
+    const ai = env.AI as unknown as { run(model: string, inputs: Record<string, unknown>): Promise<unknown> } | undefined;
+    const model = env.AI_MODEL || "@cf/meta/llama-4-scout-17b-16e-instruct";
+    const disabled = (env as unknown as Record<string, unknown>).AI_DISABLE;
+    const wantWorkers = ai && !(typeof disabled === "string" && disabled.split(",").map((x) => x.trim()).includes("workers-ai"));
+    if (wantWorkers) {
+      const r = await reserveUsage(env.DB, AI_SERVICE, envAiLimit(env), now());
+      if (r.allowed) {
+        try {
+          const out = await ai!.run(model, { messages, max_tokens: clampTokens(o.maxTokens), stream: true });
+          if (out instanceof ReadableStream) return { stream: workersAiDeltas(out), provider: "workers-ai", model };
+          const text = (out as { response?: unknown } | null)?.response;
+          if (typeof text === "string" && text) return { stream: once(text), provider: "workers-ai", model };
+        } catch (e) {
+          (opts.log ?? ((l) => console.log(l)))(`workers-ai stream failed, falling back: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+    }
+    // Fallback: rest of the chain, non-streaming (workers-ai is skipped so it is not charged twice).
+    const rest = { ...env, AI: undefined } as Env;
+    const d = await chatDetailed(rest, messages, o);
+    return { stream: once(d.text), provider: d.provider, model: d.model };
+  };
+
   return {
     name: "chain",
+    chatStream,
     selfMetered: true,
     isAvailable: (env) => build(env).length > 0,
     providerIds: (env) => build(env).map((p) => p.id),
     chatDetailed,
-    chat: async (env, messages) => (await chatDetailed(env, messages)).text,
+    chat: async (env, messages, o) => (await chatDetailed(env, messages, o)).text,
   };
+}
+
+/** Output budget per call: default 1024 tokens, never above 2048 (keeps neuron cost bounded). */
+export function clampTokens(n: number | undefined): number {
+  if (!n || !Number.isFinite(n)) return 1024;
+  return Math.max(64, Math.min(2048, Math.floor(n)));
+}
+
+async function* once(text: string): AsyncIterable<string> {
+  yield text;
+}
+
+/** Parses the Workers AI SSE byte stream (`data: {"response":"…"}` … `data: [DONE]`) into text deltas. */
+export async function* workersAiDeltas(body: ReadableStream<Uint8Array>): AsyncIterable<string> {
+  const reader = body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i: number;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i).trim();
+        buf = buf.slice(i + 1);
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        if (!data || data === "[DONE]") continue;
+        try {
+          const j = JSON.parse(data) as { response?: unknown; choices?: { delta?: { content?: unknown } }[] };
+          const t = typeof j.response === "string" ? j.response : j.choices?.[0]?.delta?.content;
+          if (typeof t === "string" && t) yield t;
+        } catch {
+          /* partial or non-JSON line */
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }

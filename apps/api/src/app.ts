@@ -9,6 +9,10 @@ import { agentRoutes } from "./routes/agents";
 import { authRoutes } from "./routes/auth";
 import { autopilotRoutes } from "./routes/autopilot";
 import { chatRoutes } from "./routes/chat";
+import { conversationRoutes, messageRoutes } from "./routes/conversations";
+import { imageRoutes } from "./routes/images";
+import { shareRoutes } from "./routes/share";
+import { adminSupportRoutes, announcementRoutes, supportRoutes } from "./routes/support";
 import { cortexRoutes } from "./routes/cortex";
 import { healthRoutes } from "./routes/health";
 import { meRoutes } from "./routes/me";
@@ -35,7 +39,14 @@ export function createApp(deps: AppDeps) {
   app.route("/api/chat", chatRoutes);
   app.route("/api/agents", agentRoutes);
   app.route("/api/tasks", taskRoutes);
+  app.route("/api/conversations", conversationRoutes);
+  app.route("/api/messages", messageRoutes);
+  app.route("/api/images", imageRoutes);
+  app.route("/api/share", shareRoutes);
+  app.route("/api/support", supportRoutes);
+  app.route("/api/announcements", announcementRoutes);
   app.route("/api/admin", adminRoutes);
+  app.route("/api/admin", adminSupportRoutes);
   app.route("/api/cortex", cortexRoutes);
   app.route("/api/autopilot", autopilotRoutes);
 

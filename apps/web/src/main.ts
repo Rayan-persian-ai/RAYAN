@@ -2,13 +2,15 @@ import "@fontsource/vazirmatn/400.css";
 import "@fontsource/vazirmatn/500.css";
 import "@fontsource/vazirmatn/700.css";
 import "./styles.css";
-import { api, can, clearMe, getMe, type Me } from "./api";
+import { api, applyTheme, can, clearMe, getMe, type Me } from "./api";
 import { renderAdmin } from "./pages/admin";
 import { renderAuth } from "./pages/auth";
 import { renderAutomation } from "./pages/automation";
 import { renderChat } from "./pages/chat";
 import { renderContentStudio, renderTaskCenter, renderWorkspace } from "./pages/cortex";
 import { renderLanding } from "./pages/landing";
+import { renderSettings } from "./pages/settings";
+import { renderShare } from "./pages/share";
 import { navigate } from "./nav";
 import { alertBox, errorMessage, h } from "./ui";
 
@@ -21,7 +23,7 @@ export function isAdmin(me: Me | null) {
 function header(me: Me | null) {
   const links: Node[] = [h("a", { href: "#/" }, "خانه")];
   if (me) {
-    links.push(h("a", { href: "#/chat" }, "گفت‌وگو"));
+    links.push(h("a", { href: "#/chat" }, "گفت‌وگو"), h("a", { href: "#/settings" }, "تنظیمات"));
     if (can(me, "cortex:run")) {
       links.push(h("a", { href: "#/workspace" }, "فضای کاری عامل‌ها"), h("a", { href: "#/tasks" }, "مرکز وظایف"), h("a", { href: "#/content" }, "استودیو محتوا"));
     }
@@ -44,13 +46,35 @@ function header(me: Me | null) {
   return h(
     "header",
     { class: "topbar" },
-    h("a", { href: "#/", class: "brand" }, h("span", { class: "logo" }, "ر"), "رایان"),
+    h("a", { href: "#/", class: "brand", "aria-label": "رایان — خانه" }, h("img", { src: "/brand/orb-64.png", alt: "", width: 32, height: 32, class: "logo-orb" }), h("img", { src: "/brand/wordmark.png", alt: "رایان", height: 26, class: "wordmark" })),
     h("nav", {}, ...links),
   );
 }
 
+let banner: HTMLElement | null = null;
+async function announcements() {
+  try {
+    const r = await api<{ announcements: { id: string; body: string }[] }>("GET", "/announcements");
+    const seen = JSON.parse(localStorage.getItem("rayan.annSeen") ?? "[]") as string[];
+    const a = r.announcements.find((x) => !seen.includes(x.id));
+    if (!a) return null;
+    const close = h("button", { type: "button", class: "icon-btn", "aria-label": "بستن" }, "✕");
+    const el = h("div", { class: "announce", role: "status" }, h("span", { dir: "auto" }, "📢 ", a.body), close);
+    close.onclick = () => {
+      localStorage.setItem("rayan.annSeen", JSON.stringify([...seen, a.id].slice(-50)));
+      el.remove();
+      banner = null;
+    };
+    return el;
+  } catch {
+    return null;
+  }
+}
+
 async function render() {
-  const route = (location.hash || "#/").replace(/^#/, "");
+  applyTheme();
+  const full = (location.hash || "#/").replace(/^#/, "");
+  const route = full.startsWith("/chat/") ? "/chat" : full.startsWith("/share/") ? "/share" : full;
   let me: Me | null = null;
   try {
     me = await getMe();
@@ -59,9 +83,11 @@ async function render() {
     return;
   }
   const main = h("main", { class: "container" });
-  root.replaceChildren(header(me), main, h("footer", { class: "footer" }, "رایان — فاز ۲: هستهٔ عامل‌ها و اتوپایلوت · هزینهٔ صفر بر بستر Cloudflare"));
+  root.replaceChildren(header(me), main, h("footer", { class: "footer" }, "رایان — هوش مصنوعی فارسی · فاز ۴: گفت‌وگوی کامل، جست‌وجو، ساخت تصویر و مدل آفلاین · هزینهٔ صفر بر بستر Cloudflare"));
+  banner ??= await announcements();
+  if (banner) root.insertBefore(banner, main);
 
-  const PROTECTED = ["/chat", "/admin", "/workspace", "/tasks", "/content", "/automation"];
+  const PROTECTED = ["/chat", "/settings", "/admin", "/workspace", "/tasks", "/content", "/automation"];
   if (PROTECTED.includes(route) && !me) return navigate("#/login");
   const denied = () => main.append(alertBox("شما اجازهٔ دسترسی به این بخش را ندارید."));
   if ((route === "/login" || route === "/signup") && me) return navigate("#/chat");
@@ -73,6 +99,10 @@ async function render() {
       return renderAuth(main, "signup");
     case "/chat":
       return renderChat(main, me!);
+    case "/settings":
+      return renderSettings(main, me!);
+    case "/share":
+      return renderShare(main, full.slice("/share/".length));
     case "/workspace":
       return can(me, "cortex:run") ? renderWorkspace(main, me!) : denied();
     case "/tasks":
@@ -93,4 +123,6 @@ async function render() {
 }
 
 window.addEventListener("hashchange", () => void render());
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme());
+if ("serviceWorker" in navigator && location.protocol === "https:") void navigator.serviceWorker.register("/sw.js").catch(() => {});
 void render();

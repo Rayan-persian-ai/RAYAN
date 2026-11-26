@@ -119,3 +119,46 @@ export const autopilotJobSchema = z.object({
   paused: z.boolean().default(false),
 });
 export const autopilotJobActionSchema = z.object({ action: z.enum(["pause", "resume", "run_now", "delete"]) });
+
+// ---------- Phase 4: chat parity with the old Space ----------
+export const conversationCreateSchema = z.object({ title: z.string().trim().min(1).max(120).optional() });
+export const conversationRenameSchema = z.object({ title: z.string().trim().min(1).max(120) });
+export const sendMessageSchema = z.object({
+  content: z.string().trim().min(1).max(4000),
+  /** Ground the answer on Persian Wikipedia when the message looks like a factual question. */
+  search: z.boolean().default(false),
+  /** «تفکر عمیق»: more careful, longer answer (bigger token budget). */
+  deep: z.boolean().default(false),
+});
+export const regenerateSchema = z.object({ search: z.boolean().default(false), deep: z.boolean().default(false) });
+/** Saves turns answered by the in-browser offline model (wllama) into the server history. */
+export const appendMessagesSchema = z.object({
+  messages: z
+    .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(8000) }))
+    .min(1)
+    .max(2),
+  engine: z.enum(["local"]).default("local"),
+});
+export const shareSchema = z.object({ enabled: z.boolean() });
+export const feedbackSchema = z.object({ rating: z.union([z.literal(-1), z.literal(0), z.literal(1)]) });
+export const ANSWER_STYLES = ["balanced", "short", "detailed"] as const;
+export const THEMES = ["light", "dark", "system"] as const;
+export const prefsSchema = z.object({
+  name: z.string().trim().max(40).optional(),
+  style: z.enum(ANSWER_STYLES).optional(),
+  about: z.string().trim().max(300).optional(),
+  theme: z.enum(THEMES).optional(),
+  autoPreview: z.boolean().optional(),
+});
+export type Prefs = z.infer<typeof prefsSchema>;
+export const IMAGE_SIZE_NAMES = ["square", "wide", "tall"] as const;
+export const imageRequestSchema = z.object({
+  prompt: z.string().trim().min(2).max(1000),
+  size: z.enum(IMAGE_SIZE_NAMES).default("square"),
+  conversation_id: z.string().trim().min(1).max(64).optional(),
+});
+export const supportCreateSchema = z.object({ body: z.string().trim().min(2).max(2000) });
+export const supportReplySchema = z.object({ reply: z.string().trim().min(1).max(2000), close: z.boolean().default(false) });
+export const announcementCreateSchema = z.object({ body: z.string().trim().min(2).max(500) });
+export const announcementToggleSchema = z.object({ active: z.boolean() });
+export const truncateSchema = z.object({ from_message_id: z.string().trim().min(1).max(64) });
