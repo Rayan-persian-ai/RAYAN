@@ -21,6 +21,9 @@ import {
 import type { AiProvider, ChatCallOptions, ChatTurn } from "../deps";
 import type { Env } from "../env";
 import { AI_SERVICE, envAiLimit, reserveUsage } from "./cost";
+import { GEMINI_SERVICE, geminiKey, geminiStream, type ImagePart } from "./gemini";
+import { findModel, geminiOrder, unitsFor, WA_AUTO_TEXT, WA_AUTO_VISION, MODELS } from "./models";
+import { intVar } from "../env";
 
 /** Every provider in the chain refused for quota/cap reasons (not an error): maps to 429 daily_cap_reached. */
 export class AiCapError extends Error {
@@ -94,31 +97,67 @@ export function createChainProvider(opts: ChainOptions = {}): ChainProvider {
   };
 
   /**
-   * Streams from Workers AI (binding, stream:true) after reserving one unit of the D1 daily cap.
-   * If the binding is missing, the cap is reached or the binding refuses before the first byte,
-   * falls back to the whole non-streaming chain (Pollinations / keyed providers) and yields its
-   * answer as a single chunk — so the caller always gets the same streaming interface.
+   * Streaming answer with the model picker + fallback:
+   *   1. Gemini (free AI Studio key, if provisioned) — model order from lib/models.ts, metered by "ai_gemini".
+   *   2. Workers AI binding (stream:true) — chosen / auto models, each reserving its `units` of AI_DAILY_LIMIT.
+   *   3. The non-streaming chain (Pollinations / keyed providers), yielded as one chunk.
+   * Any refusal before the first byte (quota 429, overload 503, retired model 404, cap) falls through.
    */
   const chatStream = async (env: Env, messages: ChatTurn[], o: ChatCallOptions = {}) => {
-    const ai = env.AI as unknown as { run(model: string, inputs: Record<string, unknown>): Promise<unknown> } | undefined;
-    const model = env.AI_MODEL || "@cf/meta/llama-4-scout-17b-16e-instruct";
-    const disabled = (env as unknown as Record<string, unknown>).AI_DISABLE;
-    const wantWorkers = ai && !(typeof disabled === "string" && disabled.split(",").map((x) => x.trim()).includes("workers-ai"));
-    if (wantWorkers) {
-      const r = await reserveUsage(env.DB, AI_SERVICE, envAiLimit(env), now());
-      if (r.allowed) {
-        try {
-          const out = await ai!.run(model, { messages, max_tokens: clampTokens(o.maxTokens), stream: true });
-          if (out instanceof ReadableStream) return { stream: workersAiDeltas(out), provider: "workers-ai", model };
-          const text = (out as { response?: unknown } | null)?.response;
-          if (typeof text === "string" && text) return { stream: once(text), provider: "workers-ai", model };
-        } catch (e) {
-          (opts.log ?? ((l) => console.log(l)))(`workers-ai stream failed, falling back: ${e instanceof Error ? e.message : String(e)}`);
+    const log = opts.log ?? ((l: string) => console.log(l));
+    const info = findModel(o.model);
+    const images: ImagePart[] = o.images ?? [];
+    const maxTokens = clampTokens(o.maxTokens);
+    const disabledList = String((env as unknown as Record<string, unknown>).AI_DISABLE ?? "").split(",").map((x) => x.trim());
+    const fetchFn = (opts.fetch as typeof fetch | undefined) ?? fetch;
+
+    // 1) Gemini
+    if ((info.provider === "auto" || info.provider === "gemini") && !disabledList.includes("gemini")) {
+      const key = await geminiKey(env);
+      if (key) {
+        const r = await reserveUsage(env.DB, GEMINI_SERVICE, intVar((env as { GEMINI_DAILY_LIMIT?: string }).GEMINI_DAILY_LIMIT, 1000), now());
+        if (r.allowed) {
+          const base = geminiOrder(env as { GEMINI_MODELS?: string });
+          const order = info.provider === "gemini" ? [info.upstream!, ...base.filter((m) => m !== info.upstream)] : base;
+          for (const m of order) {
+            try {
+              const stream = await geminiStream(key, m, messages, { maxTokens, images, fetchFn });
+              return { stream, provider: "gemini", model: m };
+            } catch (e) {
+              log(`gemini ${m} refused, trying next: ${e instanceof Error ? e.message : String(e)}`);
+            }
+          }
         }
       }
     }
-    // Fallback: rest of the chain, non-streaming (workers-ai is skipped so it is not charged twice).
-    const rest = { ...env, AI: undefined } as Env;
+
+    // 2) Workers AI
+    const ai = env.AI as unknown as { run(model: string, inputs: Record<string, unknown>): Promise<unknown> } | undefined;
+    if (ai && !disabledList.includes("workers-ai")) {
+      const auto = images.length ? WA_AUTO_VISION : WA_AUTO_TEXT;
+      let list = info.provider === "workers-ai" ? [info.upstream!, ...auto.filter((m) => m !== info.upstream)] : auto;
+      if (images.length) list = list.filter((m) => MODELS.some((x) => x.upstream === m && x.vision));
+      for (const model of list) {
+        let ok = true;
+        for (let u = 0; u < unitsFor(model); u++) {
+          const r = await reserveUsage(env.DB, AI_SERVICE, envAiLimit(env), now());
+          if (!r.allowed) ok = false;
+        }
+        if (!ok) break; // daily Workers AI budget used up → next provider
+        try {
+          const msgs = images.length ? withImages(messages, images) : messages;
+          const reasoning = /gpt-oss/.test(model) ? 1536 : 0;
+          const out = await ai.run(model, { messages: msgs, max_tokens: maxTokens + reasoning, stream: true });
+          if (out instanceof ReadableStream) return { stream: workersAiDeltas(out), provider: "workers-ai", model };
+          const text = responseText(out);
+          if (text) return { stream: once(text), provider: "workers-ai", model };
+        } catch (e) {
+          log(`workers-ai ${model} failed, falling back: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+    }
+    // 3) Rest of the chain, non-streaming (workers-ai/gemini skipped so they are not charged twice).
+    const rest = { ...env, AI: undefined, AI_DISABLE: [...disabledList, "gemini"].filter(Boolean).join(",") } as unknown as Env;
     const d = await chatDetailed(rest, messages, o);
     return { stream: once(d.text), provider: d.provider, model: d.model };
   };
@@ -138,6 +177,24 @@ export function createChainProvider(opts: ChainOptions = {}): ChainProvider {
 export function clampTokens(n: number | undefined): number {
   if (!n || !Number.isFinite(n)) return 1024;
   return Math.max(64, Math.min(2048, Math.floor(n)));
+}
+
+/** OpenAI-style content array with data-URL images on the last user turn (Workers AI vision models). */
+export function withImages(messages: ChatTurn[], images: ImagePart[]): ChatTurn[] {
+  const idx = messages.map((m) => m.role).lastIndexOf("user");
+  return messages.map((m, i) =>
+    i === idx
+      ? ({ role: m.role, content: [{ type: "text", text: m.content }, ...images.map((im) => ({ type: "image_url", image_url: { url: `data:${im.mime};base64,${im.data}` } }))] } as unknown as ChatTurn)
+      : m,
+  );
+}
+
+/** Text of a non-streaming Workers AI result ({response} or OpenAI-style choices). */
+export function responseText(out: unknown): string {
+  const o = out as { response?: unknown; choices?: { message?: { content?: unknown } }[] } | null;
+  if (typeof o?.response === "string") return o.response;
+  const c = o?.choices?.[0]?.message?.content;
+  return typeof c === "string" ? c : "";
 }
 
 async function* once(text: string): AsyncIterable<string> {

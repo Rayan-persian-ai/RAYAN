@@ -7,6 +7,10 @@ export interface ChatTurn {
 
 export interface ChatCallOptions {
   maxTokens?: number;
+  /** Model picker id (lib/models.ts); default "auto". */
+  model?: string;
+  /** Images for the last user turn (vision models only). */
+  images?: import("./lib/gemini").ImagePart[];
 }
 
 /** Abstraction over the LLM so tests (and future providers) can swap it out. */

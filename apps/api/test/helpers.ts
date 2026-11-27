@@ -90,6 +90,8 @@ export async function registeredClient(opts: Parameters<typeof client>[0] & { em
   const email = opts.email ?? uniqueEmail();
   const s = await c.json("POST", "/api/auth/signup", { email, password: PASSWORD });
   expect(s.status).toBe(201);
+  // Test fixture: mark the address verified (as the emailed code would) so login works when a mail provider is configured.
+  await baseEnv.DB.prepare("UPDATE users SET email_verified_at = ?1 WHERE email = ?2").bind(Date.now(), email.toLowerCase()).run();
   const l = await c.json("POST", "/api/auth/login", { email, password: PASSWORD });
   expect(l.status).toBe(200);
   expect(c.cookie).toBeTruthy();

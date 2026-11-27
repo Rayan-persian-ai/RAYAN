@@ -11,14 +11,31 @@ import { constantTimeEqual } from "../lib/crypto";
 import { ApiError } from "../lib/errors";
 import { resetGoogleCreds } from "../lib/google-creds";
 import { putSecret } from "../lib/secretbox";
+import { resetGeminiKey } from "../lib/gemini";
 
 export const provisionRoutes = new Hono<AppEnv>();
 const te = new TextEncoder();
 
-provisionRoutes.post("/google", async (c) => {
+function checkToken(c: import("hono").Context<AppEnv>) {
   const expected = c.env.PROVISION_TOKEN;
   const got = c.req.header("x-provision-token") ?? "";
   if (!expected || expected.length < 24 || !constantTimeEqual(te.encode(got), te.encode(expected))) throw new ApiError(404, "not_found");
+}
+
+/** POST /api/admin/provision/gemini  headers: x-provision-token, x-goog-api-key → encrypted D1 "gemini_api_key". */
+provisionRoutes.post("/gemini", async (c) => {
+  checkToken(c);
+  if (!c.env.DATA_ENC_KEY) throw new ApiError(409, "conflict", { reason: "DATA_ENC_KEY secret missing" });
+  const key = c.req.header("x-goog-api-key")?.trim();
+  if (!key || key.length < 20 || key.length > 200 || /\s/.test(key)) throw new ApiError(400, "invalid_input", { reason: "x-goog-api-key missing" });
+  await putSecret(c.env, "gemini_api_key", key, null, c.var.deps.now());
+  resetGeminiKey();
+  await audit(c, { actor: null, action: "provision.gemini", metadata: { stored: ["gemini_api_key"] } });
+  return c.json({ stored: ["gemini_api_key"] });
+});
+
+provisionRoutes.post("/google", async (c) => {
+  checkToken(c);
   if (!c.env.DATA_ENC_KEY) throw new ApiError(409, "conflict", { reason: "DATA_ENC_KEY secret missing" });
   const id = c.req.header("x-google-client-id")?.trim();
   const secret = c.req.header("x-google-client-secret")?.trim();

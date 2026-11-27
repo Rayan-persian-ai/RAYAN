@@ -17,7 +17,7 @@ import {
   appendMessagesSchema,
   CHAT_MAX_TOTAL_CHARS,
   conversationCreateSchema,
-  conversationRenameSchema,
+  conversationPatchSchema,
   feedbackSchema,
   regenerateSchema,
   sendMessageSchema,
@@ -34,6 +34,10 @@ import { parseJson } from "../lib/request";
 import { searchGanjoor, versesPrompt } from "../lib/ganjoor";
 import { isQuoteRequest, needsSearch, quoteGuard, searchWikipedia, sourcesPrompt, type Source } from "../lib/websearch";
 import { chatUserLimit, requirePermission } from "../middleware/auth";
+import { PromptGuard } from "@rayan/cortex";
+import type { ImagePart } from "../lib/gemini";
+import { findModel } from "../lib/models";
+import { memoryPrompt } from "./parity";
 
 export const conversationRoutes = new Hono<AppEnv>();
 export const messageRoutes = new Hono<AppEnv>();
@@ -46,6 +50,8 @@ interface ConvRow {
   user_id: string;
   title: string;
   share_id: string | null;
+  pinned_at: number | null;
+  project_id: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -66,6 +72,11 @@ export const publicMessage = (m: MsgRow) => ({
   rating: m.rating,
   created_at: m.created_at,
 });
+
+async function ownProject(c: Context<AppEnv>, id: string) {
+  const p = await c.env.DB.prepare("SELECT id FROM projects WHERE id = ?1 AND user_id = ?2").bind(id, c.var.auth!.user.id).first();
+  if (!p) throw new ApiError(404, "not_found", { reason: "project" });
+}
 
 async function ownConversation(c: Context<AppEnv>, id: string): Promise<ConvRow> {
   const row = await c.env.DB.prepare("SELECT * FROM conversations WHERE id = ?1 AND user_id = ?2")
@@ -105,11 +116,13 @@ conversationRoutes.use("*", requirePermission("chat:use"));
 conversationRoutes.get("/", async (c) => {
   const q = (c.req.query("q") ?? "").trim().slice(0, 100);
   const me = c.var.auth!.user.id;
+  const cols = "id, title, share_id, pinned_at, project_id, created_at, updated_at";
+  const order = "ORDER BY (pinned_at IS NULL), pinned_at DESC, updated_at DESC LIMIT 300";
   const sql = q
-    ? `SELECT id, title, share_id, created_at, updated_at FROM conversations c
+    ? `SELECT ${cols} FROM conversations c
         WHERE user_id = ?1 AND (title LIKE ?2 ESCAPE '\\' OR EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = c.id AND m.content LIKE ?2 ESCAPE '\\'))
-        ORDER BY updated_at DESC LIMIT 200`
-    : `SELECT id, title, share_id, created_at, updated_at FROM conversations WHERE user_id = ?1 ORDER BY updated_at DESC LIMIT 200`;
+        ${order}`
+    : `SELECT ${cols} FROM conversations WHERE user_id = ?1 ${order}`;
   const like = `%${q.replace(/[\\%_]/g, (m) => "\\" + m)}%`;
   const stmt = q ? c.env.DB.prepare(sql).bind(me, like) : c.env.DB.prepare(sql).bind(me);
   const { results } = await stmt.all();
@@ -117,11 +130,12 @@ conversationRoutes.get("/", async (c) => {
 });
 
 conversationRoutes.post("/", async (c) => {
-  const { title } = await parseJson(c, conversationCreateSchema);
+  const { title, project_id } = await parseJson(c, conversationCreateSchema);
   const now = c.var.deps.now();
-  const row = { id: uid(), title: titleOf(title ?? ""), share_id: null, created_at: now, updated_at: now };
-  await c.env.DB.prepare("INSERT INTO conversations (id, user_id, title, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)")
-    .bind(row.id, c.var.auth!.user.id, row.title, now)
+  if (project_id) await ownProject(c, project_id);
+  const row = { id: uid(), title: titleOf(title ?? ""), share_id: null, pinned_at: null, project_id: project_id ?? null, created_at: now, updated_at: now };
+  await c.env.DB.prepare("INSERT INTO conversations (id, user_id, title, project_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)")
+    .bind(row.id, c.var.auth!.user.id, row.title, row.project_id, now)
     .run();
   return c.json({ conversation: row }, 201);
 });
@@ -144,9 +158,13 @@ conversationRoutes.get("/:id", async (c) => {
 
 conversationRoutes.patch("/:id", async (c) => {
   const conv = await ownConversation(c, c.req.param("id"));
-  const { title } = await parseJson(c, conversationRenameSchema);
-  await c.env.DB.prepare("UPDATE conversations SET title = ?1 WHERE id = ?2").bind(title, conv.id).run();
-  return c.json({ id: conv.id, title });
+  const b = await parseJson(c, conversationPatchSchema);
+  if (b.project_id) await ownProject(c, b.project_id);
+  const title = b.title ?? conv.title;
+  const pinned_at = b.pinned === undefined ? conv.pinned_at : b.pinned ? c.var.deps.now() : null;
+  const project_id = b.project_id === undefined ? conv.project_id : b.project_id;
+  await c.env.DB.prepare("UPDATE conversations SET title = ?1, pinned_at = ?2, project_id = ?3 WHERE id = ?4").bind(title, pinned_at, project_id, conv.id).run();
+  return c.json({ id: conv.id, title, pinned_at, project_id });
 });
 
 conversationRoutes.delete("/:id", async (c) => {
@@ -202,19 +220,32 @@ conversationRoutes.post("/:id/messages", chatUserLimit, async (c) => {
   const now = c.var.deps.now();
   const userMsgId = uid();
   const count = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM messages WHERE conversation_id = ?1").bind(conv.id).first<{ n: number }>();
+  let atts: { id: string; kind: string; name: string }[] = [];
+  if (body.attachment_ids.length) {
+    const ph = body.attachment_ids.map((_, i) => `?${i + 3}`).join(",");
+    const { results } = await c.env.DB.prepare(
+      `SELECT id, kind, name FROM attachments WHERE user_id = ?1 AND (conversation_id IS NULL OR conversation_id = ?2) AND id IN (${ph})`,
+    )
+      .bind(c.var.auth!.user.id, conv.id, ...body.attachment_ids)
+      .all<{ id: string; kind: string; name: string }>();
+    if (results.length !== new Set(body.attachment_ids).size) throw new ApiError(404, "not_found", { reason: "attachment" });
+    atts = results;
+  }
   const stmts = [
-    c.env.DB.prepare("INSERT INTO messages (id, conversation_id, user_id, role, content, created_at) VALUES (?1, ?2, ?3, 'user', ?4, ?5)").bind(
+    c.env.DB.prepare("INSERT INTO messages (id, conversation_id, user_id, role, content, meta, created_at) VALUES (?1, ?2, ?3, 'user', ?4, ?5, ?6)").bind(
       userMsgId,
       conv.id,
       c.var.auth!.user.id,
       body.content,
+      atts.length ? JSON.stringify({ attachments: atts }) : null,
       now,
     ),
+    ...atts.map((a) => c.env.DB.prepare("UPDATE attachments SET conversation_id = ?1 WHERE id = ?2").bind(conv.id, a.id)),
   ];
   // the first message names the conversation (like the old site)
   if (!count?.n) stmts.push(c.env.DB.prepare("UPDATE conversations SET title = ?1 WHERE id = ?2").bind(titleOf(body.content), conv.id));
   await c.env.DB.batch(stmts);
-  return answer(c, conv, { search: body.search, deep: body.deep, userMessageId: userMsgId });
+  return answer(c, conv, { search: body.search, deep: body.deep, model: body.model, userMessageId: userMsgId });
 });
 
 conversationRoutes.post("/:id/regenerate", chatUserLimit, async (c) => {
@@ -225,11 +256,11 @@ conversationRoutes.post("/:id/regenerate", chatUserLimit, async (c) => {
     .first<{ id: string; role: string }>();
   if (!last) throw new ApiError(409, "conflict", { reason: "empty conversation" });
   if (last.role === "assistant") await c.env.DB.prepare("DELETE FROM messages WHERE id = ?1").bind(last.id).run();
-  return answer(c, conv, { search: body.search, deep: body.deep, userMessageId: null });
+  return answer(c, conv, { search: body.search, deep: body.deep, model: body.model, userMessageId: null });
 });
 
 /** Runs the model over the stored history and streams the answer as SSE; stores it when done. */
-async function answer(c: Context<AppEnv>, conv: ConvRow, opts: { search: boolean; deep: boolean; userMessageId: string | null }) {
+async function answer(c: Context<AppEnv>, conv: ConvRow, opts: { search: boolean; deep: boolean; model?: string; userMessageId: string | null }) {
   const db = c.env.DB;
   const userId = c.var.auth!.user.id;
   const { results } = await db
@@ -237,7 +268,33 @@ async function answer(c: Context<AppEnv>, conv: ConvRow, opts: { search: boolean
     .bind(conv.id)
     .all<{ role: "user" | "assistant"; content: string; meta: string | null }>();
   // image turns and failed answers are not useful context for the text model
-  const usable = results.filter((m) => !(m.meta && /"(image|error)"/.test(m.meta)));
+  // (decided on the parsed meta: a user turn whose attachments include kind "image" stays in context)
+  const usable = results.filter((m) => {
+    if (!m.meta) return true;
+    try {
+      const meta = JSON.parse(m.meta) as Record<string, unknown>;
+      return !("image" in meta || "error" in meta || meta.engine === "image");
+    } catch {
+      return true;
+    }
+  });
+  // attachments of the last user message: text → untrusted data block, images → vision input
+  const lastRow = [...results].reverse().find((m) => m.role === "user");
+  const attMeta = lastRow?.meta ? ((JSON.parse(lastRow.meta) as { attachments?: { id: string }[] }).attachments ?? []) : [];
+  let attachText = "";
+  const images: ImagePart[] = [];
+  if (attMeta.length) {
+    const ph = attMeta.map((_, i) => `?${i + 2}`).join(",");
+    const { results: rows } = await db
+      .prepare(`SELECT kind, name, mime, data FROM attachments WHERE user_id = ?1 AND id IN (${ph})`)
+      .bind(userId, ...attMeta.map((a) => a.id))
+      .all<{ kind: string; name: string; mime: string; data: string }>();
+    const guard = new PromptGuard({ maxLength: 24_000 });
+    for (const r of rows) {
+      if (r.kind === "image") images.push({ mime: r.mime, data: r.data });
+      else attachText += `\nفایل پیوست «${r.name.slice(0, 80)}»:\n` + guard.wrap(r.data.slice(0, 24_000), `file:${r.name.slice(0, 40)}`) + "\n";
+    }
+  }
   const history = historyWindow(usable);
   const lastUser = [...history].reverse().find((m) => m.role === "user");
   if (!lastUser) throw new ApiError(409, "conflict", { reason: "no user message to answer" });
@@ -248,6 +305,17 @@ async function answer(c: Context<AppEnv>, conv: ConvRow, opts: { search: boolean
   }
   const persona = await loadPersona(db, userId);
   let system = buildSystemPrompt({ persona, deep: opts.deep });
+  if ((persona as { memory?: boolean } | null)?.memory !== false) {
+    const mem = await memoryPrompt(db, userId);
+    if (mem) system += "\n\n" + mem;
+  }
+  if (conv.project_id) {
+    const p = await db.prepare("SELECT name, instructions FROM projects WHERE id = ?1 AND user_id = ?2").bind(conv.project_id, userId).first<{ name: string; instructions: string }>();
+    if (p) system += `\n\nاین گفت‌وگو در پروژهٔ «${p.name}» است.` + (p.instructions ? ` دستورهای پروژه (از طرف کاربر):\n${p.instructions}` : "");
+  }
+  if (attachText) system += "\n\n" + PromptGuard.SYSTEM_NOTICE + "\nکاربر این فایل‌ها را پیوست کرده است؛ برای پاسخ از محتوای آن‌ها استفاده کن:" + attachText;
+  if (images.length) system += "\n\nکاربر تصویر پیوست کرده است؛ آن را دقیق ببین و به پرسش دربارهٔ آن پاسخ بده.";
+  const modelId = opts.model ?? (persona as { model?: string } | null)?.model ?? "auto";
   if (sources.length) system += "\n\n" + sourcesPrompt(sources);
   // Anti-hallucination for poetry / quotes: a last-position reminder (models weigh it most) + a Ganjoor link to verify.
   let turns = history;
@@ -266,7 +334,7 @@ async function answer(c: Context<AppEnv>, conv: ConvRow, opts: { search: boolean
   }
 
   // Errors before the first token (kill switch, daily cap, provider down) are normal JSON errors.
-  const out = await guardedStream(c.env, c.var.deps, turns, { system, maxTokens: opts.deep ? 1536 : 1024 });
+  const out = await guardedStream(c.env, c.var.deps, turns, { system, maxTokens: opts.deep ? 2048 : 1536, model: findModel(modelId).id, images });
   const shown = [...sources.map(({ title, url }) => ({ title, url })), ...poemSources, ...(verify ? [verify] : [])];
 
   const enc = new TextEncoder();
@@ -293,7 +361,7 @@ async function answer(c: Context<AppEnv>, conv: ConvRow, opts: { search: boolean
   const pump = (async () => {
     let text = "";
     let failed = false;
-    await send({ type: "meta", conversation_id: conv.id, user_message_id: opts.userMessageId, message_id: assistantId, provider: out.provider });
+    await send({ type: "meta", conversation_id: conv.id, user_message_id: opts.userMessageId, message_id: assistantId, provider: out.provider, model: out.model });
     if (shown.length) await send({ type: "sources", sources: shown });
     try {
       for await (const delta of out.stream) {
@@ -305,7 +373,7 @@ async function answer(c: Context<AppEnv>, conv: ConvRow, opts: { search: boolean
       failed = true;
       console.error("stream error", e);
     }
-    const meta: Record<string, unknown> = { engine: "server", provider: out.provider, mode: opts.deep ? "deep" : "fast" };
+    const meta: Record<string, unknown> = { engine: "server", provider: out.provider, model: out.model, picked: modelId, mode: opts.deep ? "deep" : "fast" };
     if (shown.length) meta.sources = shown;
     if (clientGone) meta.stopped = true;
     if (!text.trim()) {

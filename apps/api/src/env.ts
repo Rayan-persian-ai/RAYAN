@@ -35,6 +35,11 @@ export interface Env {
   DATA_ENC_KEY?: string;
   /** One-time token that enables /api/admin/provision/google (delete the secret after use). */
   PROVISION_TOKEN?: string;
+  /** Google AI Studio free key (secret) — else the encrypted D1 copy from /api/admin/provision/gemini. */
+  GEMINI_API_KEY?: string;
+  /** csv: Gemini models tried in order (default gemini-3.5-flash, gemini-3.8-flash, gemini-3.5-flash-lite). */
+  GEMINI_MODELS?: string;
+  GEMINI_DAILY_LIMIT?: string;
 }
 
 export interface AuthUser {

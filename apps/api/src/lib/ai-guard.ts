@@ -10,6 +10,9 @@ export interface GuardOptions {
   /** System prompt to prepend (default: the Persian identity prompt). */
   system?: string;
   maxTokens?: number;
+  /** Model picker id (lib/models.ts). */
+  model?: string;
+  images?: import("./gemini").ImagePart[];
 }
 
 async function preflight(env: Env, deps: AppDeps) {
@@ -63,7 +66,7 @@ export async function guardedChat(env: Env, deps: AppDeps, messages: ChatTurn[],
 export async function guardedStream(env: Env, deps: AppDeps, messages: ChatTurn[], opts: GuardOptions = {}) {
   await preflight(env, deps);
   const full = withSystemPrompt(messages, opts.system ?? PERSIAN_SYSTEM_PROMPT);
-  const call = { maxTokens: opts.maxTokens };
+  const call = { maxTokens: opts.maxTokens, model: opts.model, images: opts.images };
   try {
     if (deps.ai.chatStream) return await deps.ai.chatStream(env, full, call);
     const text = deps.ai.chatDetailed ? await deps.ai.chatDetailed(env, full, call) : { text: await deps.ai.chat(env, full, call), provider: deps.ai.name, model: "" };

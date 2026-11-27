@@ -28,15 +28,16 @@ export function workersAiBindingProvider(ai: AiBindingLike | undefined, env: Env
     async chat(messages: ChatMessage[], opts: CallOptions) {
       let out: unknown;
       try {
-        out = await ai.run(model, { messages, max_tokens: opts.maxTokens });
+        out = await ai.run(model, { messages, max_tokens: (opts.maxTokens ?? 1024) + (/gpt-oss/.test(model) ? 1536 : 0) });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (QUOTA.test(msg)) throw new ProviderError(`workers-ai: ${msg}`, "quota");
         if (RATE.test(msg)) throw new ProviderError(`workers-ai: ${msg}`, "rate");
         throw new ProviderError(`workers-ai: ${msg}`, "server");
       }
-      const r = (out as { response?: unknown } | null)?.response;
-      if (typeof r !== "string") throw new ProviderError("workers-ai: unexpected response shape", "bad_response");
+      const o = out as { response?: unknown; choices?: { message?: { content?: unknown } }[] } | null;
+      const r = typeof o?.response === "string" ? o.response : o?.choices?.[0]?.message?.content;
+      if (typeof r !== "string" || !r) throw new ProviderError("workers-ai: unexpected response shape", "bad_response");
       return r;
     },
   };

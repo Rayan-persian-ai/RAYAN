@@ -4,6 +4,7 @@ import type { AiProvider, ChatCallOptions, ChatTurn } from "../src/deps";
 import { buildSystemPrompt, DEEP_MODE_PROMPT, PERSIAN_SYSTEM_PROMPT } from "../src/lib/ai";
 import { clampTokens, workersAiDeltas } from "../src/lib/ai-chain";
 import { cleanTranslation, imageUrl, needsTranslation } from "../src/lib/images";
+import { imageDims, validImage } from "../src/lib/image-router";
 import { needsSearch, searchWikipedia, simplify } from "../src/lib/websearch";
 import { historyWindow } from "../src/routes/conversations";
 import { client, grantRole, makeDeps as baseDeps, registeredClient } from "./helpers";
@@ -120,7 +121,7 @@ describe("streaming answers (SSE)", () => {
     expect(ev.at(-1)).toMatchObject({ type: "done", provider: "stream-mock" });
     const msgs = (await c.json("GET", `/api/conversations/${id}`)).body.messages;
     expect(msgs[1]).toMatchObject({ role: "assistant", content: "سلام، خوش آمدید", meta: { engine: "server", provider: "stream-mock", mode: "fast" } });
-    expect(ai.calls[0]!.opts).toEqual({ maxTokens: 1024 });
+    expect(ai.calls[0]!.opts).toMatchObject({ maxTokens: 1536, model: "auto" });
   });
 
   it("falls back to a single chunk for non-streaming providers and sends the full history", async () => {
@@ -148,7 +149,7 @@ describe("streaming answers (SSE)", () => {
     expect(sys).toContain("«تایماز»");
     expect(sys).toContain("کوتاه و خلاصه");
     expect(sys).toContain(DEEP_MODE_PROMPT);
-    expect(ai.calls[0]!.opts).toEqual({ maxTokens: 1536 });
+    expect(ai.calls[0]!.opts).toMatchObject({ maxTokens: 2048, model: "auto" });
     expect((await c.json("PUT", "/api/me/prefs", { style: "loud" })).status).toBe(400);
   });
 
@@ -253,28 +254,45 @@ describe("share, feedback, images, stats", () => {
     expect(st.body.stats).toMatchObject({ conversations: 1, messages: 1, answers: 1, feedback: 0 });
   });
 
-  it("makes a Pollinations image URL from a translated Persian prompt and saves it in the chat", async () => {
-    const ai = recAi({ reply: () => "An orange cat on a Persian rug" });
-    const { c } = await registeredClient({ deps: makeDeps({ ai: ai.provider }) });
+  it("routes images (Pollinations fallback without Workers AI), validates the bytes, stores them and saves the chat turn", async () => {
+    const ai = recAi({ reply: () => "An orange cat on a Persian rug, warm light" });
+    const fetched: string[] = [];
+    const fetchStub = (async (u: string) => {
+      fetched.push(String(u));
+      return new Response(fakeJpeg(1216, 832), { headers: { "content-type": "image/jpeg" } });
+    }) as unknown as typeof fetch;
+    const { c } = await registeredClient({ deps: makeDeps({ ai: ai.provider, fetch: fetchStub }) });
     const id = await newConv(c);
-    const r = await c.json("POST", "/api/images", { prompt: "گربهٔ نارنجی روی فرش ایرانی", size: "wide", conversation_id: id });
+    const r = await c.json("POST", "/api/images", { prompt: "گربهٔ نارنجی روی فرش ایرانی", size: "wide", conversation_id: id, n: 2 });
     expect(r.status).toBe(200);
-    expect(r.body).toMatchObject({ en: "An orange cat on a Persian rug", size: "wide", translated: true });
-    expect(r.body.url).toMatch(/^https:\/\/image\.pollinations\.ai\/prompt\/An%20orange%20cat%20on%20a%20Persian%20rug\?model=flux&width=1344&height=768&seed=\d+&nologo=true&safe=true$/);
+    expect(r.body).toMatchObject({ en: "An orange cat on a Persian rug, warm light", enhanced: true, failed: 0 });
+    expect(r.body.images).toHaveLength(2);
+    expect(r.body.images[0]).toMatchObject({ provider: "pollinations", width: 1216, height: 832 });
+    expect(fetched[0]).toContain("width=1216&height=832");
     expect(ai.calls[0]!.messages[0]!.content).toContain("English prompt");
+    const raw = await c.request("GET", r.body.images[0].url);
+    expect(raw.status).toBe(200);
+    expect(raw.headers.get("content-type")).toBe("image/jpeg");
+    expect((await client().request("GET", r.body.images[0].url)).status).toBe(404); // not public
     const msgs = (await c.json("GET", `/api/conversations/${id}`)).body.messages;
-    expect(msgs[1].meta.image.url).toBe(r.body.url);
+    expect(msgs[1].meta.images).toHaveLength(2);
+    expect((await c.json("GET", "/api/images")).body.images).toHaveLength(2);
     expect((await c.json("GET", "/api/conversations")).body.conversations[0].title).toContain("🎨");
-    // English prompts are not translated; a translation that comes back in Persian is discarded
-    const ai2 = recAi({ reply: () => "گربه" });
-    const c2 = (await registeredClient({ deps: makeDeps({ ai: ai2.provider }) })).c;
-    expect((await c2.json("POST", "/api/images", { prompt: "a red car" })).body).toMatchObject({ en: "a red car", translated: false });
-    expect(ai2.calls).toHaveLength(0);
-    expect((await c2.json("POST", "/api/images", { prompt: "ماشین قرمز" })).body).toMatchObject({ en: "ماشین قرمز", translated: false });
+    // a "busy" placeholder (tiny / wrong size) is never shown
+    const busy = (async () => new Response(fakeJpeg(512, 512, 4000), { headers: { "content-type": "image/jpeg" } })) as unknown as typeof fetch;
+    const c2 = (await registeredClient({ deps: makeDeps({ ai: ai.provider, fetch: busy }) })).c;
+    expect((await c2.json("POST", "/api/images", { prompt: "a red car", enhance: false })).status).toBe(503);
     expect((await c2.json("POST", "/api/images", { prompt: "x", size: "huge" })).status).toBe(400);
     expect((await c2.json("POST", "/api/images", { prompt: "a cat", conversation_id: id })).status).toBe(404);
   });
 });
+
+/** Minimal JPEG header (SOI + SOF0 with the given size) padded to `bytes`. */
+function fakeJpeg(w: number, h: number, bytes = 40_000) {
+  const b = new Uint8Array(bytes);
+  b.set([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, h >> 8, h & 255, w >> 8, w & 255, 0x03]);
+  return b;
+}
 
 describe("support inbox and announcements", () => {
   it("lets a user write to support and an admin reply; announcements are super_admin-managed and public", async () => {
@@ -354,7 +372,8 @@ describe("pure helpers", () => {
     expect(cleanTranslation("Here it is:\nAn orange cat (گربه) on a rug")).toBe("An orange cat on a rug");
     expect(cleanTranslation("English prompt: An orange cat on a rug\n")).toBe("An orange cat on a rug");
     expect(imageUrl("a b", "tall", 7)).toBe("https://image.pollinations.ai/prompt/a%20b?model=flux&width=768&height=1344&seed=7&nologo=true&safe=true");
-    expect(buildSystemPrompt()).toBe(PERSIAN_SYSTEM_PROMPT);
+    expect(buildSystemPrompt().startsWith(PERSIAN_SYSTEM_PROMPT)).toBe(true);
+    expect(buildSystemPrompt()).toContain("به وقت تهران");
     expect(PERSIAN_SYSTEM_PROMPT).toContain("مطمئن نیستم");
     expect(PERSIAN_SYSTEM_PROMPT.length).toBeLessThan(2000); // cortex slices its system prompt at 2000 chars
   });

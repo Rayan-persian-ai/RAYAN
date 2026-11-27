@@ -121,7 +121,7 @@ export const autopilotJobSchema = z.object({
 export const autopilotJobActionSchema = z.object({ action: z.enum(["pause", "resume", "run_now", "delete"]) });
 
 // ---------- Phase 4: chat parity with the old Space ----------
-export const conversationCreateSchema = z.object({ title: z.string().trim().min(1).max(120).optional() });
+export const conversationCreateSchema = z.object({ title: z.string().trim().min(1).max(120).optional(), project_id: z.string().trim().min(1).max(64).optional() });
 export const conversationRenameSchema = z.object({ title: z.string().trim().min(1).max(120) });
 export const sendMessageSchema = z.object({
   content: z.string().trim().min(1).max(4000),
@@ -129,8 +129,33 @@ export const sendMessageSchema = z.object({
   search: z.boolean().default(false),
   /** «تفکر عمیق»: more careful, longer answer (bigger token budget). */
   deep: z.boolean().default(false),
+  /** Model picker id (see GET /api/models); "auto" = strongest available with fallback. */
+  model: z.string().trim().max(40).optional(),
+  /** Files/images uploaded with POST /api/attachments, attached to this message. */
+  attachment_ids: z.array(z.string().trim().min(1).max(64)).max(4).default([]),
 });
-export const regenerateSchema = z.object({ search: z.boolean().default(false), deep: z.boolean().default(false) });
+export const regenerateSchema = z.object({ search: z.boolean().default(false), deep: z.boolean().default(false), model: z.string().trim().max(40).optional() });
+/** PATCH /api/conversations/:id — any subset of title / pinned / project. */
+export const conversationPatchSchema = z
+  .object({
+    title: z.string().trim().min(1).max(120).optional(),
+    pinned: z.boolean().optional(),
+    project_id: z.string().trim().min(1).max(64).nullable().optional(),
+  })
+  .refine((v) => v.title !== undefined || v.pinned !== undefined || v.project_id !== undefined, { message: "empty patch" });
+export const projectSchema = z.object({ name: z.string().trim().min(1).max(80), instructions: z.string().trim().max(2000).default("") });
+export const projectPatchSchema = z.object({ name: z.string().trim().min(1).max(80).optional(), instructions: z.string().trim().max(2000).optional() });
+export const memorySchema = z.object({ content: z.string().trim().min(2).max(500) });
+export const attachmentSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("text"), name: z.string().trim().min(1).max(200), mime: z.string().trim().max(100), text: z.string().min(1).max(120_000) }),
+  z.object({
+    kind: z.literal("image"),
+    name: z.string().trim().min(1).max(200),
+    mime: z.enum(["image/jpeg", "image/png", "image/webp"]),
+    /** base64 without the data: prefix; ≤ ~400 KB decoded (the browser downscales first). */
+    data: z.string().min(16).max(560_000).regex(/^[A-Za-z0-9+/=]+$/),
+  }),
+]);
 /** Saves turns answered by the in-browser offline model (wllama) into the server history. */
 export const appendMessagesSchema = z.object({
   messages: z
@@ -149,13 +174,26 @@ export const prefsSchema = z.object({
   about: z.string().trim().max(300).optional(),
   theme: z.enum(THEMES).optional(),
   autoPreview: z.boolean().optional(),
+  /** Use saved memories in answers (default on). */
+  memory: z.boolean().optional(),
+  /** Default model picker id. */
+  model: z.string().trim().max(40).optional(),
 });
 export type Prefs = z.infer<typeof prefsSchema>;
-export const IMAGE_SIZE_NAMES = ["square", "wide", "tall"] as const;
+export const IMAGE_SIZE_NAMES = ["square", "wide", "tall", "landscape", "portrait"] as const;
 export const imageRequestSchema = z.object({
   prompt: z.string().trim().min(2).max(1000),
   size: z.enum(IMAGE_SIZE_NAMES).default("square"),
   conversation_id: z.string().trim().min(1).max(64).optional(),
+  /** 1-4 variations (seed, seed+1, …). */
+  n: z.number().int().min(1).max(4).default(1),
+  /** hq = FLUX.2 [dev] first (slower, uses 2 units). */
+  quality: z.enum(["standard", "hq"]).default("standard"),
+  seed: z.number().int().min(0).max(2_147_483_647).optional(),
+  /** Rewrite the request into a rich English prompt with the text model (default on). */
+  enhance: z.boolean().default(true),
+  /** Things to avoid (sent as negative_prompt where the model supports it, else folded into the prompt). */
+  negative: z.string().trim().max(300).optional(),
 });
 export const supportCreateSchema = z.object({ body: z.string().trim().min(2).max(2000) });
 export const supportReplySchema = z.object({ reply: z.string().trim().min(1).max(2000), close: z.boolean().default(false) });

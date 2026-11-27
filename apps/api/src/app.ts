@@ -21,6 +21,10 @@ import { cortexRoutes } from "./routes/cortex";
 import { healthRoutes } from "./routes/health";
 import { meRoutes } from "./routes/me";
 import { taskRoutes } from "./routes/tasks";
+import { agentBotRoutes } from "./routes/agent-bots";
+import { adminDashRoutes } from "./routes/admin-dash";
+import { attachmentRoutes, memoryRoutes, modelRoutes, projectRoutes } from "./routes/parity";
+import { geminiKey } from "./lib/gemini";
 
 export function createApp(deps: AppDeps) {
   const app = new Hono<AppEnv>();
@@ -36,6 +40,11 @@ export function createApp(deps: AppDeps) {
   app.use("/api/*", originGuard);
   app.use("/api/*", async (c, next) => {
     c.env = await withGoogleCreds(c.env);
+    // free Gemini key (encrypted in D1) → env, so the non-streaming chain (@rayan/ai-router) can use it too
+    if (!c.env.GEMINI_API_KEY) {
+      const k = await geminiKey(c.env).catch(() => null);
+      if (k) c.env = { ...c.env, GEMINI_API_KEY: k };
+    }
     await next();
   });
   app.route("/api/health", healthRoutes); // monitoring: not rate limited, no session needed
@@ -57,6 +66,12 @@ export function createApp(deps: AppDeps) {
   app.route("/api/share", shareRoutes);
   app.route("/api/support", supportRoutes);
   app.route("/api/announcements", announcementRoutes);
+  app.route("/api/models", modelRoutes);
+  app.route("/api/projects", projectRoutes);
+  app.route("/api/memories", memoryRoutes);
+  app.route("/api/attachments", attachmentRoutes);
+  app.route("/api/admin", adminDashRoutes);
+  app.route("/api/admin", agentBotRoutes);
   app.route("/api/admin", adminRoutes);
   app.route("/api/admin", adminSupportRoutes);
   app.route("/api/cortex", cortexRoutes);
