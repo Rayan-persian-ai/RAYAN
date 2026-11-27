@@ -5,6 +5,14 @@ export interface ChatTurn {
   content: string;
 }
 
+export interface ChatCallOptions {
+  maxTokens?: number;
+  /** Model picker id (lib/models.ts); default "auto". */
+  model?: string;
+  /** Images for the last user turn (vision models only). */
+  images?: import("./lib/gemini").ImagePart[];
+}
+
 /** Abstraction over the LLM so tests (and future providers) can swap it out. */
 export interface AiProvider {
   readonly name: string;
@@ -15,9 +23,14 @@ export interface AiProvider {
    */
   readonly selfMetered?: boolean;
   /** Optional: same as chat() but also reports which provider/model served the answer. */
-  chatDetailed?(env: Env, messages: ChatTurn[]): Promise<{ text: string; provider: string; model: string }>;
+  chatDetailed?(env: Env, messages: ChatTurn[], opts?: ChatCallOptions): Promise<{ text: string; provider: string; model: string }>;
+  /**
+   * Optional token streaming. Resolves once the upstream accepted the request (errors before the
+   * first token reject here, so callers can fall back to chat()); the iterator yields text deltas.
+   */
+  chatStream?(env: Env, messages: ChatTurn[], opts?: ChatCallOptions): Promise<{ stream: AsyncIterable<string>; provider: string; model: string }>;
   isAvailable(env: Env): boolean;
-  chat(env: Env, messages: ChatTurn[]): Promise<string>;
+  chat(env: Env, messages: ChatTurn[], opts?: ChatCallOptions): Promise<string>;
 }
 
 export interface TaskContext {
@@ -32,5 +45,9 @@ export interface AppDeps {
   /** Optional overrides for cortex tools (e.g. a stub fetch in tests). */
   cortexRuntime?: import("./lib/cortex").CortexRuntimeDeps;
   taskHandlers: Record<string, TaskHandler>;
+  /** Outbound fetch for web search (Wikipedia); tests inject a stub so nothing leaves the sandbox. */
+  fetch?: typeof fetch;
+  /** Outgoing email provider override (tests); production selects one from env (Gmail by default). */
+  email?: import("./lib/email").EmailProvider;
   now: () => number;
 }

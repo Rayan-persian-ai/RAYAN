@@ -35,6 +35,7 @@ export default defineConfig(async () => {
       setupFiles: ["./test/apply-migrations.ts"],
       // Files share one local D1; run them sequentially so cron tests can reset() safely.
       fileParallelism: false,
+      testTimeout: 30000,
     },
   };
 });

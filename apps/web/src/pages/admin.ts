@@ -3,13 +3,19 @@ import { alertBox, date, errorMessage, h, num, statusFa, withBusy } from "../ui"
 
 type Tab = { id: string; label: string; visible: boolean; render: (el: HTMLElement) => Promise<void> };
 
-export function renderAdmin(main: HTMLElement, me: Me) {
+export async function renderAdmin(main: HTMLElement, me: Me, params = new URLSearchParams()) {
+  // Gmail sending is owner-only: the tab exists only when the API confirms this account is the owner.
+  let gmail: GmailStatus | null = null;
+  if (can(me, "flags:manage")) gmail = await api<GmailStatus>("GET", "/admin/gmail/status").catch(() => null);
   const all: Tab[] = [
     { id: "users", label: "کاربران", visible: can(me, "users:read"), render: (el: HTMLElement) => usersTab(el, me) },
     { id: "agents", label: "عامل‌ها", visible: can(me, "agents:read"), render: (el: HTMLElement) => agentsTab(el, me) },
     { id: "tasks", label: "وظایف", visible: can(me, "tasks:read:all"), render: (el: HTMLElement) => tasksTab(el, me) },
     { id: "audit", label: "گزارش ممیزی", visible: can(me, "audit:read"), render: auditTab },
     { id: "usage", label: "مصرف و زمان‌بند", visible: can(me, "usage:read"), render: (el: HTMLElement) => usageTab(el, me) },
+    { id: "support", label: "پشتیبانی", visible: can(me, "users:read"), render: (el: HTMLElement) => supportTab(el, me) },
+    { id: "announce", label: "اعلان‌ها", visible: can(me, "flags:manage"), render: announceTab },
+    { id: "gmail", label: "ایمیل (Gmail)", visible: !!gmail, render: (el: HTMLElement) => gmailTab(el, params) },
   ];
   const tabs = all.filter((t) => t.visible);
 
@@ -33,7 +39,8 @@ export function renderAdmin(main: HTMLElement, me: Me) {
     bar.append(b);
   }
   main.append(h("section", {}, h("h1", {}, "پنل مدیریت"), h("p", { class: "muted" }, `نقش‌های شما: ${me.roles.join("، ")}`), bar, panel));
-  if (tabs[0]) void open(tabs[0]);
+  const want = params.get("gmail") ? tabs.find((t) => t.id === "gmail") : undefined;
+  if (want ?? tabs[0]) void open((want ?? tabs[0])!);
 }
 
 function table(headers: string[], rows: Node[][]) {
@@ -241,5 +248,115 @@ async function usageTab(el: HTMLElement, me: Me) {
       ["کار", "آخرین اجرا", "وضعیت", "مدت (ms)", "تعداد اجرا", "خطا"],
       jobs.jobs.map((j) => [ltr(j.name), txt(date(j.last_run_at)), h("span", { class: `badge badge-${j.last_status ?? "unknown"}` }, statusFa(j.last_status ?? "never_run")), txt(num(j.last_duration_ms)), txt(num(j.run_count)), ltr(j.last_error)]),
     ),
+  );
+}
+
+async function supportTab(el: HTMLElement, me: Me) {
+  const r = await api<{ tickets: { id: string; body: string; reply: string | null; status: string; created_at: number; email: string }[] }>("GET", "/admin/support");
+  const canReply = can(me, "users:manage");
+  const list = h("div", { class: "stack" });
+  if (!r.tickets.length) list.append(h("p", { class: "muted" }, "پیامی در صندوق پشتیبانی نیست."));
+  for (const t of r.tickets) {
+    const out = h("div");
+    const card = h(
+      "div",
+      { class: "card stack" },
+      h("div", { class: "row" }, h("bdi", { dir: "ltr" }, t.email), h("span", { class: `badge badge-${t.status === "open" ? "pending" : "ok"}` }, t.status === "open" ? "باز" : t.status === "answered" ? "پاسخ داده شد" : "بسته"), h("small", { class: "muted" }, date(t.created_at))),
+      h("p", { class: "prose", dir: "auto" }, t.body),
+      t.reply ? h("p", { class: "muted", dir: "auto" }, "↩ ", t.reply) : null,
+      out,
+    );
+    if (canReply) {
+      const ta = h("textarea", { rows: 2, maxlength: 2000, placeholder: "پاسخ به کاربر…" });
+      const send = h("button", { type: "button", class: "btn btn-primary btn-small" }, "ارسال پاسخ");
+      const close = h("label", { class: "switch" }, h("input", { type: "checkbox" }), "بستن تیکت");
+      send.onclick = () =>
+        withBusy(send, out, async () => {
+          if (!ta.value.trim()) return;
+          await api("POST", `/admin/support/${t.id}/reply`, { reply: ta.value.trim(), close: (close.firstChild as HTMLInputElement).checked });
+          out.replaceChildren(alertBox("پاسخ ثبت شد؛ کاربر آن را در «پشتیبانی» می‌بیند.", "ok"));
+        });
+      card.append(ta, h("div", { class: "row" }, send, close));
+    }
+    list.append(card);
+  }
+  el.append(h("h2", {}, "صندوق پشتیبانی"), list);
+}
+
+async function announceTab(el: HTMLElement) {
+  const out = h("div");
+  const list = h("div", { class: "stack" });
+  const ta = h("textarea", { rows: 2, maxlength: 500, placeholder: "متن اعلان برای همهٔ کاربران…" });
+  const add = h("button", { type: "button", class: "btn btn-primary" }, "انتشار اعلان");
+  const load = async () => {
+    const r = await api<{ announcements: { id: string; body: string; active: number; created_at: number }[] }>("GET", "/admin/announcements");
+    list.replaceChildren(
+      ...(r.announcements.length
+        ? r.announcements.map((a) => {
+            const tg = h("button", { type: "button", class: "btn btn-small" }, a.active ? "غیرفعال کن" : "فعال کن");
+            tg.onclick = () =>
+              withBusy(tg, out, async () => {
+                await api("PATCH", `/admin/announcements/${a.id}`, { active: !a.active });
+                await load();
+              });
+            return h("div", { class: "row card" }, h("span", { class: `badge badge-${a.active ? "active" : "archived"}` }, a.active ? "فعال" : "غیرفعال"), h("span", { dir: "auto" }, a.body), h("small", { class: "muted" }, date(a.created_at)), tg);
+          })
+        : [h("p", { class: "muted" }, "اعلانی ثبت نشده است.")]),
+    );
+  };
+  add.onclick = () =>
+    withBusy(add, out, async () => {
+      if (ta.value.trim().length < 2) return;
+      await api("POST", "/admin/announcements", { body: ta.value.trim() });
+      ta.value = "";
+      out.replaceChildren(alertBox("اعلان منتشر شد و بالای همهٔ صفحه‌ها نمایش داده می‌شود.", "ok"));
+      await load();
+    });
+  el.append(h("h2", {}, "اعلان‌های سایت"), ta, h("div", { class: "row" }, add), out, list);
+  await load();
+}
+
+interface GmailStatus {
+  provider: string;
+  configured: boolean;
+  gmail_connected: boolean;
+  sender: string | null;
+  google_client: boolean;
+}
+const GMAIL_RESULT: Record<string, [string, "ok" | "error"]> = {
+  connected: ["Gmail وصل شد؛ ایمیل‌های رایان از این حساب ارسال می‌شود.", "ok"],
+  wrong_account: ["فقط حساب گوگلِ مالک (OWNER_EMAIL) می‌تواند Gmail را وصل کند.", "error"],
+  no_refresh_token: ["گوگل توکن دسترسی آفلاین نداد؛ دوباره «اتصال» را بزنید و همهٔ دسترسی‌ها را تأیید کنید.", "error"],
+};
+
+async function gmailTab(el: HTMLElement, params: URLSearchParams) {
+  const out = h("div");
+  const r = params.get("gmail");
+  if (r && GMAIL_RESULT[r]) out.append(alertBox(GMAIL_RESULT[r]![0], GMAIL_RESULT[r]![1]));
+  const s = await api<GmailStatus>("GET", "/admin/gmail/status");
+  const rows: [string, string][] = [
+    ["سرویس ارسال", s.provider === "gmail" ? "Gmail API" : s.provider],
+    ["وضعیت", s.configured ? "✅ آمادهٔ ارسال" : "⛔ هنوز وصل نشده"],
+    ["فرستنده", s.sender ?? "—"],
+    ["کلاینت OAuth گوگل", s.google_client ? "پیکربندی شده" : "پیکربندی نشده"],
+  ];
+  const actions = h("div", { class: "row" });
+  if (s.google_client)
+    actions.append(h("a", { class: "btn btn-primary", href: "/api/admin/gmail/connect" }, s.gmail_connected ? "اتصال دوباره به Gmail" : "اتصال Gmail (ارسال به‌نام مالک)"));
+  if (s.gmail_connected) {
+    const dis = h("button", { type: "button", class: "btn btn-danger" }, "قطع اتصال");
+    dis.onclick = () =>
+      withBusy(dis, out, async () => {
+        await api("POST", "/admin/gmail/disconnect", {});
+        out.replaceChildren(alertBox("اتصال Gmail حذف شد.", "ok"));
+      });
+    actions.append(dis);
+  }
+  el.append(
+    h("h2", {}, "ارسال ایمیل با Gmail"),
+    h("p", { class: "muted" }, "کدهای تأیید و ایمیل‌های ایجنت‌ها از حساب Gmail مالک فرستاده می‌شوند (سقف روزانهٔ ۴۵۰ ایمیل). توکن به‌صورت رمزنگاری‌شده در D1 نگه‌داری می‌شود و هرگز نمایش داده نمی‌شود."),
+    h("div", { class: "table-wrap" }, h("table", {}, h("tbody", {}, ...rows.map(([k, v]) => h("tr", {}, h("th", {}, k), h("td", {}, v)))))),
+    actions,
+    out,
   );
 }

@@ -100,3 +100,53 @@ export function clearMe() {
 export function can(me: Me | null, p: Permission): boolean {
   return !!me?.permissions.includes(p);
 }
+
+/**
+ * POST that returns the raw Response for streaming (SSE). Non-2xx JSON errors are thrown as ApiError,
+ * exactly like api(); network failures throw ApiError(0, "network").
+ */
+export async function apiStream(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
+  const base = await apiBase();
+  let res: Response;
+  try {
+    res = await fetch(`${base}/api${path}`, {
+      method: "POST",
+      credentials: base ? "include" : "same-origin",
+      headers: { "content-type": "application/json", accept: "text/event-stream" },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (e) {
+    if (signal?.aborted) throw e;
+    throw new ApiError(0, "network", "ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی کنید.");
+  }
+  if (!res.ok) {
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {
+      /* non-JSON */
+    }
+    throw new ApiError(res.status, data?.error?.code ?? "unknown", data?.error?.message ?? `خطای ${res.status}`, data?.error?.details);
+  }
+  return res;
+}
+
+export interface Prefs {
+  name?: string;
+  style?: "balanced" | "short" | "detailed";
+  about?: string;
+  theme?: "light" | "dark" | "system";
+  autoPreview?: boolean;
+}
+
+/** Theme: light / dark / system, stored locally (instant) and in the account prefs. */
+export function applyTheme(pref?: string | null) {
+  const p = pref ?? localStorage.getItem("rayan.theme") ?? "system";
+  const dark = p === "dark" || (p === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+}
+export function setTheme(p: "light" | "dark" | "system") {
+  localStorage.setItem("rayan.theme", p);
+  applyTheme(p);
+}

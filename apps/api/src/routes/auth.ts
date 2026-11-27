@@ -10,6 +10,7 @@ import { parseJson } from "../lib/request";
 import { createSession, destroySession } from "../lib/session";
 import { authIpLimit, requireAuth } from "../middleware/auth";
 import { bootstrapOwner } from "../lib/bootstrap";
+import { emailProviderOf, sendCode } from "./email-auth";
 
 export const authRoutes = new Hono<AppEnv>();
 
@@ -37,8 +38,16 @@ authRoutes.post("/signup", authIpLimit, async (c) => {
     throw e;
   }
   await audit(c, { actor: id, action: "auth.signup", targetType: "user", targetId: id });
+  // Email verification: when a provider is configured, a 6-digit code is sent and login waits for it.
+  let verification_required = false;
+  try {
+    verification_required = await sendCode(c, input.email, "verify", id);
+  } catch (e) {
+    console.error("signup verification email failed", e);
+    verification_required = true; // the user can ask for a new code from the login form
+  }
   // No session here on purpose: the account is used only after a verified login (which also runs the owner bootstrap).
-  return c.json({ user: { id, email: input.email, display_name: input.display_name ?? null } }, 201);
+  return c.json({ user: { id, email: input.email, display_name: input.display_name ?? null }, verification_required }, 201);
 });
 
 authRoutes.post("/login", authIpLimit, async (c) => {
@@ -60,10 +69,10 @@ authRoutes.post("/login", authIpLimit, async (c) => {
   }
 
   const user = await c.env.DB.prepare(
-    "SELECT id, email, display_name, password_hash, status FROM users WHERE email = ?1",
+    "SELECT id, email, display_name, password_hash, status, email_verified_at FROM users WHERE email = ?1",
   )
     .bind(input.email)
-    .first<{ id: string; email: string; display_name: string | null; password_hash: string; status: string }>();
+    .first<{ id: string; email: string; display_name: string | null; password_hash: string; status: string; email_verified_at: number | null }>();
 
   const iterations = intVar(c.env.PBKDF2_ITERATIONS, 100_000);
   const ok = await verifyPassword(input.password, user?.password_hash ?? dummyHash(iterations));
@@ -78,6 +87,10 @@ authRoutes.post("/login", authIpLimit, async (c) => {
     throw new ApiError(401, "invalid_credentials");
   }
 
+  if (!user.email_verified_at && (await emailProviderOf(c).configured(c.env))) {
+    await audit(c, { actor: user.id, action: "auth.login.unverified", targetType: "user", targetId: user.id });
+    throw new ApiError(403, "email_unverified");
+  }
   await c.env.DB.prepare("UPDATE users SET last_login_at = ?1 WHERE id = ?2").bind(now, user.id).run();
   // Rehash-on-login: upgrade hashes stored with fewer iterations than currently configured.
   if (needsRehash(user.password_hash, iterations)) {

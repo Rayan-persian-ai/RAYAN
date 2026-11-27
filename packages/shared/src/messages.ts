@@ -16,5 +16,10 @@ export const ERRORS_FA = {
   internal: "خطای داخلی سرور رخ داد.",
   approval_required: "این اقدام به تأیید انسانی نیاز دارد.",
   approval_denied: "شما مجاز به تأیید این درخواست نیستید.",
+  email_unverified: "ایمیل شما هنوز تأیید نشده است. کد تأیید ارسال‌شده به ایمیلتان را وارد کنید.",
+  email_unavailable: "ارسال ایمیل در حال حاضر پیکربندی نشده است.",
+  invalid_code: "کد واردشده نادرست یا منقضی است.",
+  google_unavailable: "ورود با گوگل در حال حاضر پیکربندی نشده است.",
+  oauth_failed: "ورود با گوگل ناموفق بود. لطفاً دوباره تلاش کنید یا با کد ایمیل وارد شوید.",
 } as const;
 export type ErrorCode = keyof typeof ERRORS_FA;

@@ -53,5 +53,5 @@ export const originGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
 
 export const noStore: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next();
-  c.header("Cache-Control", "no-store");
+  if (!c.res.headers.get("cache-control")?.startsWith("private")) c.header("Cache-Control", "no-store");
 };

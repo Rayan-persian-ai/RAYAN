@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
 import { AI_SERVICE, envAiLimit, getUsage } from "../lib/cost";
+import { selectProvider } from "../lib/email";
 import { isFlagEnabled } from "../lib/flags";
+import { googleConfigured } from "../lib/google";
 
 /** Cron fires every 15 min; allow two missed runs plus slack before calling the scheduler stale. */
 export const SCHEDULER_STALE_MS = 35 * 60_000;
@@ -51,6 +53,16 @@ healthRoutes.get("/", async (c) => {
     }
   }
 
+  // What the sign-in UI may show: buttons appear only for features that really work right now.
+  let auth: Record<string, unknown> = { google: googleConfigured(c.env), email_codes: false };
+  if (dbOk) {
+    const p = c.var.deps.email ?? selectProvider(c.env, c.var.deps.fetch);
+    try {
+      auth = { ...auth, email_codes: await p.configured(c.env), email_provider: p.id };
+    } catch {
+      /* keep false */
+    }
+  }
   const status = !dbOk ? "down" : ai.status === "ok" && scheduler.status === "ok" ? "ok" : "degraded";
-  return c.json({ status, db: { status: dbOk ? "ok" : "down" }, ai, scheduler, time: now }, dbOk ? 200 : 503);
+  return c.json({ status, db: { status: dbOk ? "ok" : "down" }, ai, scheduler, auth, time: now }, dbOk ? 200 : 503);
 });
